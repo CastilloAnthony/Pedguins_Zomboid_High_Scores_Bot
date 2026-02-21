@@ -6,7 +6,7 @@ LOGGER: logging.Logger = logging.getLogger("bot")
 def read_discord_settings(file_path = './settings_discord.json') -> dict:
     if not Path(file_path).is_file():          
         json.dump({ 
-            "discord_bot" : {
+            "pedguinBot" : {
             "botToken" : "",
             "client-ID" : "",
             "public-ID" : "",
