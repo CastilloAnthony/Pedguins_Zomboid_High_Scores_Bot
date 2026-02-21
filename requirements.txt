@@ -1,0 +1,3 @@
+discord.py==2.6.4
+mcrcon==0.7.0
+paramiko==4.0.0
