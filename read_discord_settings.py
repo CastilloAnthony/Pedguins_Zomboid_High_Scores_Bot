@@ -1,5 +1,7 @@
 import json
 from pathlib import Path
+import logging
+LOGGER: logging.Logger = logging.getLogger("bot")
 
 def read_discord_settings(file_path = './settings_discord.json') -> dict:
     if not Path(file_path).is_file():          
@@ -15,7 +17,7 @@ def read_discord_settings(file_path = './settings_discord.json') -> dict:
             "LEVELUP_CHANNEL_ID" : 0, 
             "GUILD_ID" : 0 
             }}, file, indent=4) # Redirect URLS are not really needed here.
-        print('Created new settings_discord.json file, please fill out missing passwords and/or incorrect and/or missing data.')
+        LOGGER.info('Created new settings_discord.json file, please fill out missing passwords and/or incorrect and/or missing data.')
     else:
         with open(file_path, 'r') as file:
             return json.load(file)

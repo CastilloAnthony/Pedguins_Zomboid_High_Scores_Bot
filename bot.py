@@ -18,11 +18,16 @@ from read_discord_settings import read_discord_settings
 from read_connection_settings import read_connection_settings
 settings_discord = read_discord_settings()
 settings_connection = read_connection_settings()
-target_bot = 'Pedguins_Zomboid_High_Scores_Bot'
+target_bot = 'personalAssistant' #'Pedguins_Zomboid_High_Scores_Bot'
 # Examples of Accessing Data:
 # settings_discord['target_bot']['botToken']            # target_bot is a sub-dictionary inside of settings_discord, technically, we could have multiple bots listed in the json.
 # settings_connection['RCON_HOST']
-polling_rate = 10/60*60 # Seconds (Note: 1/60 * 60 is 1 second)
+polling_rate = 1/60*60 # Seconds (Note: 1/60 * 60 is 1 second)
+
+import player_data_functions
+pz_perk_log = player_data_functions.read_data_file('./pz_perk_log.json')
+player_data = player_data_functions.read_data_file()
+
 
 # --------------------
 # DISCORD INTENTS
@@ -213,7 +218,6 @@ DEFAULT_SKILLS = {
     "Music": 0,
 }
 
-
 # --------------------
 # LOAD / SAVE FUNCTIONS
 # --------------------
@@ -273,8 +277,19 @@ load_times()
 load_seen_skills()
 sanitize_player_skills()
 
-atexit.register(save_times)
-atexit.register(save_seen_skills)
+temp_player_data = player_data_functions.check_old_player_data()
+if not temp_player_data:
+    pass
+else:
+    for key, value in temp_player_data.items():
+        if key not in player_data:
+            player_data[key] = value
+
+# atexit.register(save_times)
+# atexit.register(save_seen_skills)
+atexit.register(player_data_functions.save_data_file, player_data)
+# atexit.register(player_data_functions.save_data_file, pz_perk_log, './pz_perk_log.json')
+
 
 # --------------------
 # SERVER STATUS ANNOUNCE
@@ -312,181 +327,259 @@ async def on_ready():
 # @tasks.loop(seconds=polling_rate)
 async def poll_players():
     global online_players, player_sessions, total_times, player_survival_time, player_skills, server_online
-    now = time.time()
+    global pz_perk_log, player_data
     channel = bot.get_channel(settings_discord[target_bot]['ANNOUNCE_CHANNEL_ID'])
     death_channel = bot.get_channel(settings_discord[target_bot]['ANNOUNCE_CHANNEL_ID'])
 
-    try:
-        # --- RCON: get online players ---
-        with MCRcon(settings_connection['RCON_HOST'], settings_connection['RCON_PASSWORD'], port=settings_connection['RCON_PORT']) as rcon:
-            response = rcon.command("players") or rcon.command("who")
-        server_online = True
-        current_players = set()
+    # try:
+    # --- RCON: get online players ---
+    with MCRcon(settings_connection['RCON_HOST'], settings_connection['RCON_PASSWORD'], port=settings_connection['RCON_PORT']) as rcon:
+        response = rcon.command("players") or rcon.command("who")
+    server_online = True
+    current_players = set()
+    now = time.time()
 
-        # --- Parse RCON player list ---
-        for line in response.splitlines():
-            clean = line.strip().lstrip("-•* ").strip()
-            lower = clean.lower()
-            if not clean or "unknown command" in lower or lower.startswith(("players","connected","there are","total")):
-                continue
-            if not clean.replace("_","").isalnum():
-                continue
-            current_players.add(lower)
+    # --- Parse RCON player list ---
+    for line in response.splitlines():
+        clean = line.strip().lstrip("-•* ").strip()
+        lower = clean.lower()
+        if not clean or "unknown command" in lower or lower.startswith(("players","connected","there are","total")):
+            continue
+        if not clean.replace("_","").isalnum():
+            continue
+        current_players.add(lower)
 
-        # --- Handle joins ---
-        for player in current_players - online_players:
-            player_sessions[player] = now
-            player_survival_time.setdefault(player, 0)
-            player_skills.setdefault(player, DEFAULT_SKILLS.copy())
-            if channel:
-                await channel.send(f"```🟢 - {player.capitalize()} has joined the server!```")
+    # --- Handle joins ---
+    for player in current_players - online_players:
+        player_sessions[player] = now
+        player_survival_time.setdefault(player, 0)
+        player_skills.setdefault(player, DEFAULT_SKILLS.copy())
+        if channel:
+            await channel.send(f"```🟢 - {player.capitalize()} has joined the server!```")
 
-        # --- Handle leaves ---
-        for player in online_players - current_players:
-            start = player_sessions.pop(player, now)
-            session = now - start
-            total_times[player] = total_times.get(player, 0) + session
-            player_survival_time[player] = player_survival_time.get(player, 0) + session
-            h, m = int(session//3600), int((session%3600)//60)
-            if channel:
-                await channel.send(f"```🔴 - {player.capitalize()} has left the server.\nSession: {h}h {m}m```")
+    # --- Handle leaves ---
+    for player in online_players - current_players:
+        start = player_sessions.pop(player, now)
+        session = now - start
+        total_times[player] = total_times.get(player, 0) + session
+        player_survival_time[player] = player_survival_time.get(player, 0) + session
+        h, m = int(session//3600), int((session%3600)//60)
+        if channel:
+            await channel.send(f"```🔴 - {player.capitalize()} has left the server.\nSession: {h}h {m}m```")
 
-        # --- Increment survival and total time for current online players ---
-        for player in current_players & online_players:
-            session = now - player_sessions.get(player, now)
-            total_times[player] = total_times.get(player, 0) + session
-            player_survival_time[player] = player_survival_time.get(player, 0) + session
-            player_sessions[player] = now
+    # --- Increment survival and total time for current online players ---
+    for player in current_players & online_players:
+        session = now - player_sessions.get(player, now)
+        total_times[player] = total_times.get(player, 0) + session
+        player_survival_time[player] = player_survival_time.get(player, 0) + session
+        player_sessions[player] = now
+        # print(f'{player} {session} {player_survival_time.get(player, 0)} {total_times.get(player, 0)}')
+        if player not in player_data:
+            player_data[player] = player_data_functions.create_default_player_data(username=player)
+            player_data_functions.save_data_file(player_data)
+        player_data[player]['totalPlayTime'] += session
+    player_data_functions.save_data_file(player_data)
 
-        online_players.clear()
-        online_players.update(current_players)
+    online_players.clear()
+    online_players.update(current_players)
 
-        # --- SFTP: Check PerkLog for deaths & level-ups ---
-        transport = paramiko.Transport((settings_connection['SFTP_HOST'], settings_connection['SFTP_PORT']))
-        transport.connect(username=settings_connection['SFTP_USER'], password=settings_connection['SFTP_PASS'])
-        sftp = paramiko.SFTPClient.from_transport(transport)
+    # --- SFTP: Check PerkLog for deaths & level-ups ---
+    transport = paramiko.Transport((settings_connection['SFTP_HOST'], settings_connection['SFTP_PORT']))
+    transport.connect(username=settings_connection['SFTP_USER'], password=settings_connection['SFTP_PASS'])
+    sftp = paramiko.SFTPClient.from_transport(transport)
 
-        files = sftp.listdir(settings_connection['LOG_DIR'])
-        perk_logs = [f for f in files if f.endswith("_PerkLog.txt")]
+    files = sftp.listdir(settings_connection['LOG_DIR'])
+    perk_logs = [f for f in files if f.endswith("_PerkLog.txt")]
 
-        if perk_logs:
-            latest_file = sorted(perk_logs)[-1]
-            remote_path = os.path.join(settings_connection['LOG_DIR'], latest_file)
+    if perk_logs:
+        latest_file = sorted(perk_logs)[-1]
+        remote_path = os.path.join(settings_connection['LOG_DIR'], latest_file)
 
-            # --- Correctly indented file reading ---
-            with sftp.open(remote_path, "r") as f:
-                for line in f:
-                    line = line.strip()
-
-                    # --- Death detection ---
-                    if "[Died]" in line and line not in seen_deaths:
-                        seen_deaths.add(line)
-                        try:
-                            parts = re.findall(r"\[(.*?)\]", line)
-                            player_name = parts[2]  # original name
-                            player_key = parts[2].lower()
-                            hours_survived = float(parts[-1].replace("Hours Survived: ","").replace(".",""))
-
-                            # Reset skills and survival time
-                            player_skills[player_key] = DEFAULT_SKILLS.copy()
-                            player_survival_time[player_key] = 0
-                            LOGGER.info(f"{player_name.capitalize()}'s skills and survival time reset due to death.")
-
-                            # In-game time
-                            in_game_days = int(hours_survived // 24)
-                            in_game_hours = int(hours_survived % 24)
-                            if hours_survived >= 1:
-                                in_game_str = f"{in_game_days} days {in_game_hours} hours" if in_game_days > 0 else f"{in_game_hours} hours"
-                            else:
-                                in_game_str = "less than 1 hour"
-
-                            # Real-life time
-                            real_minutes = hours_survived * 3.75
-                            real_days = int(real_minutes // (24*60))
-                            real_hours = int((real_minutes % (24*60)) // 60)
-                            real_mins = int(real_minutes % 60)
-                            if real_minutes >= 1:
-                                real_str = f"{real_days} days {real_hours} hours {real_mins} minutes" if real_days > 0 else f"{real_hours} hours {real_mins} minutes"
-                            else:
-                                real_str = "less than a minute"
-
-                            # Capitalize for display
-                            display_name = player_name.capitalize()
-
-                            # Send multi-line death message
-                            msg = f"""
-                            ```💀 {display_name} has died.
-                            Survived in-game: {in_game_str}
-                            Real-life: {real_str}```
-                            """
-                            if death_channel:
-                                await death_channel.send(msg)
-
-                        except Exception as e:
-                            LOGGER.info(f"Error parsing death line: {e}")
-
-                        continue  # skip other processing for this line
-
-                    # --- Level-up detection ---
-                    if line in seen_levelups:
-                        continue
-                    if "[Created Player" in line:
-                        seen_levelups.add(line)
-                        continue
-                    if "=" in line:
-                        try:
-                            bracketed = re.findall(r"\[(.*?)\]", line)
-                            if len(bracketed) < 5:
-                                continue
-                            player_key = bracketed[2].lower()
-                            display_name = bracketed[2]
-                            skills_str = bracketed[4] if "=" in bracketed[4] else ""
-                            if not skills_str:
-                                continue
-                            player_skills.setdefault(player_key, DEFAULT_SKILLS.copy())
-                            for pair in skills_str.split(", "):
-                                if "=" in pair:
-                                    skill_name, lvl = pair.split("=")
-                                    skill_name = skill_name.strip()
-                                    lvl = int(''.join(filter(str.isdigit, lvl)) or 0)
-                                    if skill_name in DEFAULT_SKILLS:
-                                        player_skills[player_key][skill_name] = lvl
-                            seen_levelups.add(line)
-                        except Exception as e:
-                            LOGGER.info(f"Error parsing skill line: {e}")
-
-                    if "[Level Changed]" in line:
-                        seen_levelups.add(line)
-                        try:
-                            parts = line.split("][")
-                            player_key = parts[1].lower()
-                            display_name = parts[1]
-                            skill = parts[4]
-                            level = int(parts[5].strip("]."))
-                            emoji = SKILL_EMOJIS.get(skill, "")
-                            player_skills.setdefault(player_key, DEFAULT_SKILLS.copy())[skill] = level
-                            display_name_cap = display_name.capitalize()
-                            msg = f"```🎉 {display_name_cap} has leveled up their {skill} to {level}! {emoji}```"
-
+        # --- Correctly indented file reading ---
+        with sftp.open(remote_path, "r") as f:
+            for line in f:
+                parsed = player_data_functions.log_parser(line)
+                if parsed['timestamp'] not in pz_perk_log: # This line hasn't been added to the bot yet.
+                    pz_perk_log[parsed['timestamp']] = parsed
+                    player_data_functions.save_data_file(pz_perk_log, './pz_perk_log.json')
+                    if parsed['username'] not in player_data: # Detected a player not already player_data, creating a default
+                        player_data[parsed['username']] = player_data_functions.create_default_player_data(username=parsed['username'], user_id=parsed['user_id'])
+                        player_data_functions.save_data_file(player_data)
+                    if parsed['type'] == 'skills':
+                        player_data[parsed['username']]['user_id'] = parsed['user_id'] # Probably don't need to be updating this this
+                        player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
+                        player_data[parsed['username']]['skills'] = parsed['skills']
+                        player_data_functions.save_data_file(player_data)
+                        print(f'Skills updated {player_data[parsed['username']]['skills']}')
+                    elif parsed['type'] == 'login':
+                        player_data[parsed['username']]['lastLogin'] = time.time()
+                        player_data[parsed['username']]['user_id'] = parsed['user_id'] # Probably don't need to be updating this this
+                        player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
+                        player_data_functions.save_data_file(player_data)
+                    elif parsed['type'] == 'died':
+                        player_data[parsed['username']] = {
+                                'user_id' : parsed['user_id'],
+                                'hoursSurvived' : 0,
+                                'skills' : DEFAULT_SKILLS.copy(),
+                            } # Reset to Zero on death
+                        player_data_functions.save_data_file(player_data)
+                        # In-game time
+                        in_game_days = int(parsed['hoursSurvived'] // 24)
+                        in_game_hours = int(parsed['hoursSurvived'] % 24)
+                        if parsed['hoursSurvived'] >= 1:
+                            in_game_str = f"{in_game_days} days {in_game_hours} hours" if in_game_days > 0 else f"{in_game_hours} hours"
+                        else:
+                            in_game_str = "less than 1 hour"
+                        # Real-life time
+                        real_minutes = parsed['hoursSurvived'] * 3.75
+                        real_days = int(real_minutes // (24*60))
+                        real_hours = int((real_minutes % (24*60)) // 60)
+                        real_mins = int(real_minutes % 60)
+                        if real_minutes >= 1:
+                            real_str = f"{real_days} days {real_hours} hours {real_mins} minutes" if real_days > 0 else f"{real_hours} hours {real_mins} minutes"
+                        else:
+                            real_str = "less than a minute"
+                        msg = f"""
+                        ```💀 {parsed['username']} has died.
+                        Survived in-game: {in_game_str}
+                        Real-life: {real_str}```
+                        """
+                        if death_channel:
+                            await death_channel.send(msg)
+                    elif parsed['type'] == 'levelUp':
+                        player_data[parsed['username']]['user_id'] = parsed['user_id'] # Probably don't need to be updating this this
+                        player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
+                        # player_data[parsed['username']]['skills'] = DEFAULT_SKILLS.copy()
+                        player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
+                        if int(player_data[parsed['username']]['skills'][parsed['skill']]) < int(parsed['level']): # Level Up
+                            player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
+                            player_data_functions.save_data_file(player_data)
+                            msg = f"```🎉 {parsed['username']} has leveled up their {parsed['skill']} to {parsed['level']}! {SKILL_EMOJIS.get(parsed['skill'], "")}```"
                             channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
                             if channel:
                                 await channel.send(msg)
-                        except Exception:
-                            LOGGER.info(f"Error parsing level-up line: {line}")
+                        elif int(player_data[parsed['username']]['skills'][parsed['skill']]) > int(parsed['level']): # Level Down
+                            player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
+                            player_data_functions.save_data_file(player_data)
+                            msg = f"```🎉 {parsed['username']} has leveled down their {parsed['skill']} to {parsed['level']}! {SKILL_EMOJIS.get(parsed['skill'], "")}```"
+                            channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
+                            if channel:
+                                await channel.send(msg)
+    sftp.close()
+    transport.close()
+    # save_times()
+    # save_seen_skills()
+                # line = line.strip()
 
-        sftp.close()
-        transport.close()
-        save_times()
-        save_seen_skills()
-        LOGGER.info(f'Players successfully polled and new data is available!') # Also not necessary, but I thought you might like to keep some info in the terminal as you had before.
+                # # --- Death detection ---
+                # if "[Died]" in line and line not in seen_deaths:
+                #     seen_deaths.add(line)
+                #     try:
+                #         parts = re.findall(r"\[(.*?)\]", line)
+                #         player_name = parts[2]  # original name
+                #         player_key = parts[1]
+                #         hours_survived = float(parts[-1].replace("Hours Survived: ","").replace(".",""))
 
-    except Exception as e:
-        if server_online:
-            server_online = False
-            online_players.clear()
-            player_sessions.clear()
-            # await announce_server_status(False)
-        LOGGER.info(f"Polling error: {e}")
+                #         # Reset skills and survival time
+                #         player_skills[player_key] = DEFAULT_SKILLS.copy()
+                #         player_survival_time[player_key] = 0
+                #         LOGGER.info(f"{player_name.capitalize()}'s skills and survival time reset due to death.")
+
+                #         # In-game time
+                #         in_game_days = int(hours_survived // 24)
+                #         in_game_hours = int(hours_survived % 24)
+                #         if hours_survived >= 1:
+                #             in_game_str = f"{in_game_days} days {in_game_hours} hours" if in_game_days > 0 else f"{in_game_hours} hours"
+                #         else:
+                #             in_game_str = "less than 1 hour"
+
+                #         # Real-life time
+                #         real_minutes = hours_survived * 3.75
+                #         real_days = int(real_minutes // (24*60))
+                #         real_hours = int((real_minutes % (24*60)) // 60)
+                #         real_mins = int(real_minutes % 60)
+                #         if real_minutes >= 1:
+                #             real_str = f"{real_days} days {real_hours} hours {real_mins} minutes" if real_days > 0 else f"{real_hours} hours {real_mins} minutes"
+                #         else:
+                #             real_str = "less than a minute"
+
+                #         # Capitalize for display
+                #         display_name = player_name.capitalize()
+
+                #         # Send multi-line death message
+                #         msg = f"""
+                #         ```💀 {display_name} has died.
+                #         Survived in-game: {in_game_str}
+                #         Real-life: {real_str}```
+                #         """
+                #         if death_channel:
+                #             await death_channel.send(msg)
+
+                #     except Exception as e:
+                #         LOGGER.info(f"Error parsing death line: {e}")
+
+                #     continue  # skip other processing for this line
+
+                # # --- Level-up detection ---
+                # if line in seen_levelups:
+                #     continue
+                # if "[Created Player" in line:
+                #     seen_levelups.add(line)
+                #     continue
+                # if "=" in line:
+                #     try:
+                #         bracketed = re.findall(r"\[(.*?)\]", line)
+                #         if len(bracketed) < 5:
+                #             continue
+                #         player_key = bracketed[1]
+                #         display_name = bracketed[2]
+                #         skills_str = bracketed[4] if "=" in bracketed[4] else ""
+                #         if not skills_str:
+                #             continue
+                #         player_skills.setdefault(player_key, DEFAULT_SKILLS.copy())
+                #         for pair in skills_str.split(", "):
+                #             if "=" in pair:
+                #                 skill_name, lvl = pair.split("=")
+                #                 skill_name = skill_name.strip()
+                #                 lvl = int(''.join(filter(str.isdigit, lvl)) or 0)
+                #                 if skill_name in DEFAULT_SKILLS:
+                #                     player_skills[player_key][skill_name] = lvl
+                #         seen_levelups.add(line)
+                #     except Exception as e:
+                #         LOGGER.info(f"Error parsing skill line: {e}")
+
+                # if "[Level Changed]" in line:
+                #     seen_levelups.add(line)
+                #     try:
+                #         parts = line.split("][")
+                #         player_key = parts[1].lower()
+                #         display_name = parts[1]
+                #         skill = parts[4]
+                #         level = int(parts[5].strip("]."))
+                #         emoji = SKILL_EMOJIS.get(skill, "")
+                #         player_skills.setdefault(player_key, DEFAULT_SKILLS.copy())[skill] = level
+                #         display_name_cap = display_name.capitalize()
+                #         msg = f"```🎉 {display_name_cap} has leveled up their {skill} to {level}! {emoji}```"
+
+                #         channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
+                #         if channel:
+                #             await channel.send(msg)
+                #     except Exception:
+                #         LOGGER.info(f"Error parsing level-up line: {line}")
+
+    # sftp.close()
+    # transport.close()
+    # save_times()
+    # save_seen_skills()
+    # LOGGER.info(f'Players successfully polled and new data is available!') # Also not necessary, but I thought you might like to keep some info in the terminal as you had before.
+
+    # except Exception as e:
+    #     if server_online:
+    #         server_online = False
+    #         online_players.clear()
+    #         player_sessions.clear()
+    #         # await announce_server_status(False)
+    #     LOGGER.info(f"Polling error: {e}")
 
 
 # --------------------
@@ -522,7 +615,7 @@ async def update_status():
 # --------------------
 # SAVE LOOP
 # --------------------
-@tasks.loop(seconds=polling_rate)
+@tasks.loop(seconds=settings_connection['POLLING_RATE'])
 async def periodic_save():
     await poll_players()
     await update_status()
@@ -537,14 +630,15 @@ async def periodic_save():
 
 @tree.command(name="online", description="Show currently online players")
 async def online_slash(interaction: discord.Interaction):
-    global online_players, player_sessions
-    now = time.time()
+    global online_players#, player_sessions
+    global player_data
     if not online_players:
         await interaction.response.send_message("```🟢 - No players are currently online.```")
         return
     lines = []
+    now = time.time()
     for player in sorted(online_players):
-        duration = now - player_sessions.get(player, now)
+        duration = now - player_data[player]['lastLogin']#player_sessions.get(player, now)
         h, m = int(duration//3600), int((duration%3600)//60)
         lines.append(f"- {player.capitalize()} ({h}h {m}m)")
     await interaction.response.send_message(f"```🟢 - Players Online:\n" + "\n".join(lines) + f"\n\nTotal: {len(online_players)}```")
@@ -581,25 +675,29 @@ async def time_slash(interaction: discord.Interaction, target: str):
 
 
 @tree.command(name="skill", description="Show a player's skills or leaderboard for a skill")
-@app_commands.describe(target="Skill name, player name, or 'total'")
+@app_commands.describe(target="Skill name, player name, 'total' or 'all'.")
 async def skill_slash(interaction: discord.Interaction, target: str):
     global online_players, player_skills
+    global player_data
     target_lower = target.lower()
 
     # ----------------------
     # TOTAL SKILLS LEADERBOARD
     # ----------------------
-    if target_lower == "total":
+    if target_lower == "total" or target_lower == 'all':
         combined = {}
-        for player_key, skills in player_skills.items():
-            full_skills = DEFAULT_SKILLS.copy()
-            full_skills.update(skills)
-            combined[player_key] = sum(full_skills.values())
+        # for player_key, skills in player_skills.items():
+        #     full_skills = DEFAULT_SKILLS.copy()
+        #     full_skills.update(skills)
+        #     combined[player_key] = sum(full_skills.values())
 
-        for player in online_players:
-            pk = player.lower()
-            if pk not in combined:
-                combined[pk] = 0
+        # for player in online_players:
+        #     pk = player.lower()
+        #     if pk not in combined:
+        #         combined[pk] = 0
+
+        for player in player_data:
+            combined[player] = sum(player_data[player]['skills'].values())
 
         top = sorted(combined.items(), key=lambda x: x[1], reverse=True)[:10]
 
@@ -624,14 +722,18 @@ async def skill_slash(interaction: discord.Interaction, target: str):
     skill_key = SKILL_ALIASES.get(target_lower, target.title())
     if skill_key in SKILL_EMOJIS:
         top_list = []
-        for player_key, skills in player_skills.items():
-            lvl = skills.get(skill_key, 0)
-            top_list.append((player_key, lvl))
+        # for player_key, skills in player_skills.items():
+        #     lvl = skills.get(skill_key, 0)
+        #     top_list.append((player_key, lvl))
+
+        for player in player_data:
+            top_list.append((player, player_data[player]['skills'][skill_key]))
 
         for player in online_players:
             pk = player.lower()
             if pk not in [p for p,_ in top_list]:
                 top_list.append((pk, 0))
+        
 
         top = sorted(top_list, key=lambda x:x[1], reverse=True)[:10]
         emoji = SKILL_EMOJIS.get(skill_key, '')
@@ -650,7 +752,8 @@ async def skill_slash(interaction: discord.Interaction, target: str):
     if player_key not in player_skills:
         player_skills[player_key] = DEFAULT_SKILLS.copy()
 
-    skills = player_skills[player_key]
+    # skills = player_skills[player_key]
+    skills = player_data[player_key]['skills']
     display_name = target.capitalize()
     status = "🟢 Online" if player_key in [pl.lower() for pl in online_players] else "🔴 Offline"
 
