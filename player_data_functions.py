@@ -152,7 +152,7 @@ def log_parser(logLine:str) -> dict: # Returns a dictionary of the log message b
             'coordinates' : newList[3].split(','),
             'status' : newList[4],
         }
-    elif newList[4] == 'WriteSkillRecoveryJournal STOP':
+    elif newList[4] == 'WriteSkillRecoveryJournal STOP' or newList[4] == 'WriteSkillRecoveryJournal  STOP': # Why are there two different types for the same thing in the _PerksLog.txt?
         return {
             'type' : 'skillJournal',
             # 'uuid' : uuid4(),
@@ -176,7 +176,7 @@ def log_parser(logLine:str) -> dict: # Returns a dictionary of the log message b
             'coordinates' : newList[3].split(','),
             'status' : newList[4],
         }
-    elif newList[4] == 'ReadSkillRecoveryJournal  STOP': #
+    elif newList[4] == 'ReadSkillRecoveryJournal  STOP' or newList[4] == 'ReadSkillRecoveryJournal STOP': # Why are there two different types for the same thing in the _PerksLog.txt?
         return {
             'type' : 'skillJournal',
             # 'uuid' : uuid4(),
@@ -188,7 +188,7 @@ def log_parser(logLine:str) -> dict: # Returns a dictionary of the log message b
             'coordinates' : newList[3].split(','),
             'status' : newList[4],
         }
-    else: # Skills
+    elif 'Fitness' in newList[4] and 'Strength' in newList[4]: # Skills
         return {
             'type' : 'skills',
             # 'uuid' : uuid4(),
@@ -201,8 +201,16 @@ def log_parser(logLine:str) -> dict: # Returns a dictionary of the log message b
             'skills' : parse_skills(newList[4]),
             'hoursSurvived' : parse_hours_survived(newList[5]),
         }
+    else:
+        data = {
+            'type' : 'unhandled',
+            'timestamp' : newList[0],
+            'allData' : newList
+        }
+        LOGGER.warning(f'An unhandled log message has been detected {data}')
+        return data
 # end logParser
-    
+
 def parse_hours_survived(text:str) -> int:
     count = 0
     for c in reversed(text):

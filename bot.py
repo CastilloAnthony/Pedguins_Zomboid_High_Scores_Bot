@@ -402,6 +402,8 @@ async def poll_players():
                 if parsed['timestamp'] not in pz_perk_log: # This line hasn't been added to the bot yet.
                     pz_perk_log[parsed['timestamp']] = parsed
                     player_data_functions.save_data_file(pz_perk_log, './pz_perk_log.json')
+                    if parsed['type'] == 'unhandled':
+                        continue
                     if parsed['username'] not in player_data: # Detected a player not already player_data, creating a default
                         player_data[parsed['username']] = player_data_functions.create_default_player_data(username=parsed['username'], user_id=parsed['user_id'])
                         player_data_functions.save_data_file(player_data)

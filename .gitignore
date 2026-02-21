@@ -2,7 +2,7 @@
 settings_*
 *.json
 *_PerkLog.txt
-
+*.old
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
