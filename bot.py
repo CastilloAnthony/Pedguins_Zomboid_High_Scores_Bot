@@ -449,7 +449,7 @@ async def poll_players():
                         player_data[parsed['username']]['user_id'] = parsed['user_id'] # Probably don't need to be updating this this
                         player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
                         # player_data[parsed['username']]['skills'] = DEFAULT_SKILLS.copy()
-                        player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
+                        # player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
                         if int(player_data[parsed['username']]['skills'][parsed['skill']]) < int(parsed['level']): # Level Up
                             player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
                             player_data_functions.save_data_file(player_data)
@@ -457,13 +457,15 @@ async def poll_players():
                             channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
                             if channel:
                                 await channel.send(msg)
-                        elif int(player_data[parsed['username']]['skills'][parsed['skill']]) > int(parsed['level']): # Level Down
-                            player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
-                            player_data_functions.save_data_file(player_data)
-                            msg = f"```🎉 {parsed['username']} has leveled down their {parsed['skill']} to {parsed['level']}! {SKILL_EMOJIS.get(parsed['skill'], "")}```"
-                            channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
-                            if channel:
-                                await channel.send(msg)
+                        player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
+                        player_data_functions.save_data_file(player_data)
+                        # elif int(player_data[parsed['username']]['skills'][parsed['skill']]) > int(parsed['level']): # Level Down
+                        #     player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
+                        #     player_data_functions.save_data_file(player_data)
+                        #     msg = f"```🎉 {parsed['username']} has leveled down their {parsed['skill']} to {parsed['level']}! {SKILL_EMOJIS.get(parsed['skill'], "")}```"
+                        #     channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
+                        #     if channel:
+                        #         await channel.send(msg)
     sftp.close()
     transport.close()
     # save_times()
