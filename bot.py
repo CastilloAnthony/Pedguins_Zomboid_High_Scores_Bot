@@ -18,7 +18,7 @@ from read_discord_settings import read_discord_settings
 from read_connection_settings import read_connection_settings
 settings_discord = read_discord_settings()
 settings_connection = read_connection_settings()
-target_bot = 'personalAssistant' #'Pedguins_Zomboid_High_Scores_Bot'
+target_bot = 'pedguinBot' #'personalAssistant' #'Pedguins_Zomboid_High_Scores_Bot'
 # Examples of Accessing Data:
 # settings_discord['target_bot']['botToken']            # target_bot is a sub-dictionary inside of settings_discord, technically, we could have multiple bots listed in the json.
 # settings_connection['RCON_HOST']
@@ -410,7 +410,6 @@ async def poll_players():
                         player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
                         player_data[parsed['username']]['skills'] = parsed['skills']
                         player_data_functions.save_data_file(player_data)
-                        print(f'Skills updated {player_data[parsed['username']]['skills']}')
                     elif parsed['type'] == 'login':
                         player_data[parsed['username']]['lastLogin'] = time.time()
                         player_data[parsed['username']]['user_id'] = parsed['user_id'] # Probably don't need to be updating this this
