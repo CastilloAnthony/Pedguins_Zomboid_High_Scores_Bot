@@ -81,6 +81,10 @@ def save_data_file(player_data:dict, file_path:str = './player_data.json') -> No
 # end save_player_data
 
 def log_parser(logLine:str) -> dict: # Returns a dictionary of the log message broken down into its respective parts. Three different types can be had. 
+    if '(perform)' in logLine:
+        logLine= logLine.replace('(perform)', '')
+    elif '(stop)' in logLine:
+        logLine = logLine.replace('(stop)', '')
     newList = (logLine[:23]+logLine[24:-3]).strip('[]').split('][') # Remove whitespace between timestamp and user_id, outer brackets, and split into separate keys. 
     if newList[4] == 'Level Changed':
         return {
@@ -135,6 +139,54 @@ def log_parser(logLine:str) -> dict: # Returns a dictionary of the log message b
             'coordinates' : newList[3].split(','),
             'status' : newList[4],
             'hoursSurvived' : parse_hours_survived(newList[5]),
+        }
+    elif newList[4] == 'WriteSkillRecoveryJournal START':
+        return {
+            'type' : 'skillJournal',
+            # 'uuid' : uuid4(),
+            # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
+            'timestamp' : newList[0],
+            # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
+            'user_id' : newList[1],
+            'username' : newList[2],
+            'coordinates' : newList[3].split(','),
+            'status' : newList[4],
+        }
+    elif newList[4] == 'WriteSkillRecoveryJournal STOP':
+        return {
+            'type' : 'skillJournal',
+            # 'uuid' : uuid4(),
+            # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
+            'timestamp' : newList[0],
+            # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
+            'user_id' : newList[1],
+            'username' : newList[2],
+            'coordinates' : newList[3].split(','),
+            'status' : newList[4],
+        }
+    elif newList[4] == 'ReadSkillRecoveryJournal START':
+        return {
+            'type' : 'skillJournal',
+            # 'uuid' : uuid4(),
+            # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
+            'timestamp' : newList[0],
+            # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
+            'user_id' : newList[1],
+            'username' : newList[2],
+            'coordinates' : newList[3].split(','),
+            'status' : newList[4],
+        }
+    elif newList[4] == 'ReadSkillRecoveryJournal  STOP': #
+        return {
+            'type' : 'skillJournal',
+            # 'uuid' : uuid4(),
+            # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
+            'timestamp' : newList[0],
+            # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
+            'user_id' : newList[1],
+            'username' : newList[2],
+            'coordinates' : newList[3].split(','),
+            'status' : newList[4],
         }
     else: # Skills
         return {

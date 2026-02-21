@@ -1,6 +1,7 @@
 # No Passwords, Tokens, or other personal data should ever be uploaded
 settings_*
 *.json
+*_PerkLog.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
