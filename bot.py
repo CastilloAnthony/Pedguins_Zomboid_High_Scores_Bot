@@ -10,6 +10,7 @@ import atexit
 import os
 import re
 
+import traceback
 import logging
 LOGGER: logging.Logger = logging.getLogger("bot")
 discord.utils.setup_logging(level=logging.INFO) # Enables additional logging info from discord, just nice to see sometimes and not to overwhelming, ALSO DUPLICATES DISCORD LOGGING MSGS :(
@@ -25,9 +26,9 @@ target_bot = 'pedguinBot' #'personalAssistant' #'Pedguins_Zomboid_High_Scores_Bo
 polling_rate = 1/60*60 # Seconds (Note: 1/60 * 60 is 1 second)
 
 import player_data_functions
+player_data_functions.merge_duplicate_players()
 pz_perk_log = player_data_functions.read_data_file('./pz_perk_log.json')
 player_data = player_data_functions.read_data_file()
-
 
 # --------------------
 # DISCORD INTENTS
@@ -48,7 +49,7 @@ player_skills = {}          # {player: {skill: level}}
 seen_levelups = set()
 seen_deaths = set()
 server_online = False
-curr_activity = "🔴 Server Offline" # Keeps track of the last status update, we don't need to send an update out if the bot already has the same activity set.
+curr_activity = "" # Keeps track of the last status update, we don't need to send an update out if the bot already has the same activity set.
 
 SAVE_FILE = "player_times.json"
 SEEN_SKILLS_FILE = "seen_skills.json"
@@ -333,9 +334,17 @@ async def poll_players():
 
     # try:
     # --- RCON: get online players ---
-    with MCRcon(settings_connection['RCON_HOST'], settings_connection['RCON_PASSWORD'], port=settings_connection['RCON_PORT']) as rcon:
-        response = rcon.command("players") or rcon.command("who")
-    server_online = True
+    try:
+        with MCRcon(settings_connection['RCON_HOST'], settings_connection['RCON_PASSWORD'], port=settings_connection['RCON_PORT']) as rcon:
+            server_online = True
+            response = rcon.command("players") or rcon.command("who")
+    except Exception:
+        online_players.clear()
+        server_online = False
+        error = traceback.format_exc()
+        lines = error.split('\n')
+        LOGGER.info('Can\'t reach Project Zomboid Server '+str(lines[-2]))
+        return
     current_players = set()
     now = time.time()
 
@@ -354,18 +363,20 @@ async def poll_players():
         player_sessions[player] = now
         player_survival_time.setdefault(player, 0)
         player_skills.setdefault(player, DEFAULT_SKILLS.copy())
-        if channel:
+        if channel and curr_activity != '':
+            player_data[player]['lastLogin'] = time.time()
             await channel.send(f"```🟢 - {player.capitalize()} has joined the server!```")
 
     # --- Handle leaves ---
     for player in online_players - current_players:
         start = player_sessions.pop(player, now)
-        session = now - start
+        session = now - player_data[player]['lastLogin']
         total_times[player] = total_times.get(player, 0) + session
         player_survival_time[player] = player_survival_time.get(player, 0) + session
-        h, m = int(session//3600), int((session%3600)//60)
+        duration = time.time() - player_data[player]['lastLogin']
+        h, m, s = int(duration//3600), int((duration%3600)//60), int((duration%3600)%60)
         if channel:
-            await channel.send(f"```🔴 - {player.capitalize()} has left the server.\nSession: {h}h {m}m```")
+            await channel.send(f"```🔴 - {player.capitalize()} has left the server.\nSession: {h}h {m}m {s}s```")
 
     # --- Increment survival and total time for current online players ---
     for player in current_players & online_players:
@@ -374,10 +385,14 @@ async def poll_players():
         player_survival_time[player] = player_survival_time.get(player, 0) + session
         player_sessions[player] = now
         # print(f'{player} {session} {player_survival_time.get(player, 0)} {total_times.get(player, 0)}')
-        if player not in player_data:
-            player_data[player] = player_data_functions.create_default_player_data(username=player)
+        if player.lower() in player_data:
+            player_data[player]['totalPlayTime'] += time.time() - player_data[player]['lastPoll']
+            player_data[player]['lastPoll'] = time.time()
+            # player_data[player] = player_data_functions.create_default_player_data(username=player)
             player_data_functions.save_data_file(player_data)
-        player_data[player]['totalPlayTime'] += session
+        # if 'totalPlayTime' not in player_data[player]: # Temporary until we find the real problem
+        #     player_data[player]['totalPlayTime'] = 0
+        
     player_data_functions.save_data_file(player_data)
 
     online_players.clear()
@@ -401,42 +416,49 @@ async def poll_players():
                 parsed = player_data_functions.log_parser(line)
                 if parsed['timestamp'] not in pz_perk_log: # This line hasn't been added to the bot yet.
                     pz_perk_log[parsed['timestamp']] = parsed
-                    player_data_functions.save_data_file(pz_perk_log, './pz_perk_log.json')
                     if parsed['type'] == 'unhandled':
+                        player_data_functions.save_data_file(pz_perk_log, './pz_perk_log.json')
                         continue
                     if parsed['username'] not in player_data: # Detected a player not already player_data, creating a default
                         player_data[parsed['username']] = player_data_functions.create_default_player_data(username=parsed['username'], user_id=parsed['user_id'])
                         player_data_functions.save_data_file(player_data)
+                    if player_data[parsed['username']]['user_id'] == 'None' or parsed['user_id'] != player_data[parsed['username']]['user_id']:
+                        player_data[parsed['username']]['user_id'] = parsed['user_id']
+                        player_data_functions.save_data_file(player_data)
                     if parsed['type'] == 'skills':
-                        player_data[parsed['username']]['user_id'] = parsed['user_id'] # Probably don't need to be updating this this
+                        print(player_data[parsed['username']]['hoursSurvived'])
                         player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
                         player_data[parsed['username']]['skills'] = parsed['skills']
                         player_data_functions.save_data_file(player_data)
                     elif parsed['type'] == 'login':
-                        player_data[parsed['username']]['lastLogin'] = time.time()
-                        player_data[parsed['username']]['user_id'] = parsed['user_id'] # Probably don't need to be updating this this
+                        player_data[parsed['username']]['characterLastLogin'] = time.time()
                         player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
                         player_data_functions.save_data_file(player_data)
-                    elif parsed['type'] == 'died':
-                        player_data[parsed['username']] = {
-                                'user_id' : parsed['user_id'],
-                                'hoursSurvived' : 0,
-                                'skills' : DEFAULT_SKILLS.copy(),
-                            } # Reset to Zero on death
+                    elif parsed['type'] == 'creation':
+                        player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
+                        player_data[parsed['username']]['characterLastLogin'] = time.time()
+                        player_data[parsed['username']]['skills'] = DEFAULT_SKILLS.copy()
                         player_data_functions.save_data_file(player_data)
+                    elif parsed['type'] == 'died':
                         # In-game time
+                        # print(parsed['hoursSurvived'])
                         in_game_days = int(parsed['hoursSurvived'] // 24)
                         in_game_hours = int(parsed['hoursSurvived'] % 24)
                         if parsed['hoursSurvived'] >= 1:
                             in_game_str = f"{in_game_days} days {in_game_hours} hours" if in_game_days > 0 else f"{in_game_hours} hours"
                         else:
                             in_game_str = "less than 1 hour"
-                        # Real-life time
-                        real_minutes = parsed['hoursSurvived'] * 3.75
-                        real_days = int(real_minutes // (24*60))
-                        real_hours = int((real_minutes % (24*60)) // 60)
-                        real_mins = int(real_minutes % 60)
-                        if real_minutes >= 1:
+                        # Real-life time 
+                        # # 1 Full In-Game Day is 1 IRL Hour
+                        in_game_hours = parsed['hoursSurvived']
+                        real_days = int(in_game_hours // 24*24) # 24 Hours is 576 Zomboid Hours
+                        real_hours = int(in_game_hours // 24) # 1 Hour is 24 Zomboid Hours
+                        real_mins = int(in_game_hours // (24/60)) # 1/60 Hours is 0.4 Zomboid Hours
+                        # real_days = int(real_minutes // (24*60))
+                        # real_hours = int((real_minutes % (24*60)) // 60)
+                        # real_mins = int(real_minutes % 60)
+                        # print(real_days, real_hours, real_mins)
+                        if real_mins >= 1:
                             real_str = f"{real_days} days {real_hours} hours {real_mins} minutes" if real_days > 0 else f"{real_hours} hours {real_mins} minutes"
                         else:
                             real_str = "less than a minute"
@@ -459,8 +481,9 @@ async def poll_players():
                             channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
                             if channel:
                                 await channel.send(msg)
-                        player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
-                        player_data_functions.save_data_file(player_data)
+                        else:
+                            player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
+                            player_data_functions.save_data_file(player_data)
                         # elif int(player_data[parsed['username']]['skills'][parsed['skill']]) > int(parsed['level']): # Level Down
                         #     player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
                         #     player_data_functions.save_data_file(player_data)
@@ -468,6 +491,9 @@ async def poll_players():
                         #     channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
                         #     if channel:
                         #         await channel.send(msg)
+                    player_data_functions.save_data_file(pz_perk_log, './pz_perk_log.json')
+                else:
+                    continue
     sftp.close()
     transport.close()
     # save_times()
@@ -625,13 +651,13 @@ async def periodic_save():
     # We should save whenever we retrieve new data. These has been moved to the end of poll_players()
     # save_times()
     # save_seen_skills()
-    
+# end periodic_save
 
 # --------------------
 # COMMANDS (Slash)
 # --------------------
 
-@tree.command(name="online", description="Show currently online players")
+@tree.command(name="online", description="Show currently online players.")
 async def online_slash(interaction: discord.Interaction):
     global online_players#, player_sessions
     global player_data
@@ -642,40 +668,79 @@ async def online_slash(interaction: discord.Interaction):
     now = time.time()
     for player in sorted(online_players):
         duration = now - player_data[player]['lastLogin']#player_sessions.get(player, now)
-        h, m = int(duration//3600), int((duration%3600)//60)
-        lines.append(f"- {player.capitalize()} ({h}h {m}m)")
-    await interaction.response.send_message(f"```🟢 - Players Online:\n" + "\n".join(lines) + f"\n\nTotal: {len(online_players)}```")
+        h, m, s = int(duration//3600), int((duration%3600)//60), int((duration%(60*60)%60))
+        lines.append(f"- {player.capitalize()} ({h}h {m}m {s}s)")
+    await interaction.response.send_message(f"```🟢 - Players Online (Session Time):\n" + "\n".join(lines) + f"\n\nTotal: {len(online_players)}```")
+# end online_slash
 
-
-@tree.command(name="time", description="Show total playtime for a player")
+@tree.command(name="time", description="Show total playtime for a player.")
 @app_commands.describe(target="Player name or 'all'")
 async def time_slash(interaction: discord.Interaction, target: str):
-    global online_players, player_sessions, total_times
-    now = time.time()
+    global online_players#, player_sessions, total_times
+    global player_data
+
     if target.lower() == "all":
-        combined = {p:t for p,t in total_times.items()}
-        for p in online_players:
-            combined[p] = combined.get(p,0) + (now - player_sessions.get(p,now))
-        top = sorted(combined.items(), key=lambda x:x[1], reverse=True)[:10]
-        if not top:
-            await interaction.response.send_message("```🕒 - No playtime recorded yet.```")
-            return
+        player_times = []
+        for player in player_data:
+            player_times.append((player_data[player]['username'], player_data[player]['totalPlayTime']))
+        player_times = sorted(player_times, key=lambda tup: tup[1], reverse=True)
         lines = []
-        for p, sec in top:
-            h, m = int(sec//3600), int((sec%3600)//60)
+        for p, sec in player_times[:10]: # Top 10 (arrays/lists start at 0 and this syntax goes up to, but does not include the last index)
+            h, m, s = int(sec//3600), int((sec%3600)//60), int((sec%3600)%60)
             status = "🟢" if p in online_players else "🔴"
-            lines.append(f"{status} - {p.capitalize()}: {h}h {m}m")
-        await interaction.response.send_message("```🕒 - Top 10 Players by Total Playtime:\n" + "\n".join(lines) + "```")
-        return
+            lines.append(f"{status} - {p.capitalize()}: {h}h {m}m {s}s")
+        await interaction.response.send_message("```🕒 - Top 10 Players by Total Playtime:\n" + "\n".join((lines)) + "```")
+    elif target.lower() in player_data: # A Singlar Player
+        h, m, s = int(player_data[target.lower()]['totalPlayTime']//3600), int((player_data[target.lower()]['totalPlayTime']%3600)//60), int((player_data[target.lower()]['totalPlayTime']%3600)%60)
+        status = "🟢" if target.lower() in online_players else "🔴"
+        await interaction.response.send_message(f"```{status} - {target.capitalize()} has played for {h}h {m}m {s}s in total.```")
+    # now = time.time()
+    # if target.lower() == "all":
+    #     combined = {p:t for p,t in total_times.items()}
+    #     for p in online_players:
+    #         combined[p] = combined.get(p,0) + (now - player_sessions.get(p,now))
+    #     top = sorted(combined.items(), key=lambda x:x[1], reverse=True)[:10]
+    #     if not top:
+    #         await interaction.response.send_message("```🕒 - No playtime recorded yet.```")
+    #         return
+    #     lines = []
+    #     for p, sec in top:
+    #         h, m = int(sec//3600), int((sec%3600)//60)
+    #         status = "🟢" if p in online_players else "🔴"
+    #         lines.append(f"{status} - {p.capitalize()}: {h}h {m}m")
+    #     await interaction.response.send_message("```🕒 - Top 10 Players by Total Playtime:\n" + "\n".join(lines) + "```")
+    #     return
 
-    player = target.lower()
-    total = total_times.get(player,0)
-    if player in online_players:
-        total += now - player_sessions.get(player,now)
-    h, m = int(total//3600), int((total%3600)//60)
-    status = "🟢" if player in online_players else "🔴"
-    await interaction.response.send_message(f"```{status} - {player.capitalize()} has played {h}h {m}m total.```")
+    # player = target.lower()
+    # total = total_times.get(player,0)
+    # if player in online_players:
+    #     total += now - player_sessions.get(player,now)
+    # h, m = int(total//3600), int((total%3600)//60)
+    # status = "🟢" if player in online_players else "🔴"
+    # await interaction.response.send_message(f"```{status} - {player.capitalize()} has played {h}h {m}m total.```")
+# end time_slash
 
+@tree.command(name="survived", description="Shows the total time a player's current character has survived for in in-game hours.")
+@app_commands.describe(target="Player name or 'all'")
+async def survived_slash(interaction: discord.Interaction, target: str):
+    global online_players
+    global player_data
+    
+    if target.lower() == "all":
+        player_times = []
+        for player in player_data:
+            player_times.append((player_data[player]['username'], player_data[player]['hoursSurvived']))
+        player_times = sorted(player_times, key=lambda tup: tup[1], reverse=True)
+        lines = []
+        for p, hours in player_times[:10]: # Top 10 (arrays/lists start at 0 and this syntax goes up to, but does not include the last index)
+            status = "🟢" if p in online_players else "🔴"
+            lines.append(f"{status} - {p.capitalize()}: {hours}hours")
+        await interaction.response.send_message("```🕒 - Top 10 Current Character by In-Game Survival Hours:\n" + "\n".join((lines)) + "```")
+    elif target.lower() in player_data: # A Singlar Player
+        hours = int(player_data[target.lower()]['hoursSurvived']//3600)
+        status = "🟢" if target.lower() in online_players else "🔴"
+        await interaction.response.send_message(f"```{status} - {target.capitalize()} has survived for {hours} in-game hours.```")
+# end survived_slash
 
 @tree.command(name="skill", description="Show a player's skills or leaderboard for a skill")
 @app_commands.describe(target="Skill name, player name, 'total' or 'all'.")
@@ -835,7 +900,7 @@ async def skill_slash(interaction: discord.Interaction, target: str):
 
     # msg = f"```{status} - {display_name}'s Skills\n" + "\n".join(lines) + "```"
     # await ctx.send(msg)
-
+# end skill_slash
 
 @tree.command(name="commands", description="Show all available commands")
 async def commands_slash(interaction: discord.Interaction):
@@ -844,16 +909,18 @@ async def commands_slash(interaction: discord.Interaction):
         "• `/online` — Show currently online players.\n"
         "• `/time [player]` — Show total playtime for a player.\n"
         "• `/time all` — Show top 10 players by playtime.\n"
+        "• `/survived all` — Show top 10 players by survival time.\n"
         "• `/skill [skill]` — Show top 10 players by a skill.\n"
         "• `/skill [player]` — Show a specific players skills.\n"
         "• `/skill total` — Show top 10 players by total skill levels.\n"
         "• `/commands` — Show this list."
     )
-
+# end commands_slash
 
 
 # --------------------
 # START BOT
 # --------------------
-bot.run(settings_discord[target_bot]['botToken'])
+if __name__ == '__main__': # This prevents the bot being ran multiple times in different threads, just a safety precaution
+    bot.run(settings_discord[target_bot]['botToken'])
 

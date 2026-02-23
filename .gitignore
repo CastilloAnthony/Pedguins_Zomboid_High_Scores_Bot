@@ -3,6 +3,9 @@ settings_*
 *.json
 *_PerkLog.txt
 *.old
+db_agent.py
+*.db
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

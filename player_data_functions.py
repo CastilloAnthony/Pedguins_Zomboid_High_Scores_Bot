@@ -52,13 +52,16 @@ DEFAULT_SKILLS = {
 # Player_data Format:
 def create_default_player_data(username:str, user_id:str = 'None') -> dict:
     return {
-        'username' : username,
+        'username' : username.lower(),
         'user_id' : user_id,
         'lastLogin' : time.time(),
+        'characterLastLogin' : time.time(),
+        'lastPoll' : time.time(),
         'totalPlayTime' : 0,
         'hoursSurvived' : 0,
         'skills' : DEFAULT_SKILLS.copy(),
     }
+# end create_default_player_data
 
 def read_data_file(file_path:str = './player_data.json') -> dict:
     if not Path(file_path).is_file():
@@ -86,6 +89,7 @@ def log_parser(logLine:str) -> dict: # Returns a dictionary of the log message b
     elif '(stop)' in logLine:
         logLine = logLine.replace('(stop)', '')
     newList = (logLine[:23]+logLine[24:-3]).strip('[]').split('][') # Remove whitespace between timestamp and user_id, outer brackets, and split into separate keys. 
+    newList[2] = newList[2].lower()
     if newList[4] == 'Level Changed':
         return {
             'type' : 'levelUp',
@@ -127,9 +131,9 @@ def log_parser(logLine:str) -> dict: # Returns a dictionary of the log message b
             'status' : newList[4],
             'hoursSurvived' : parse_hours_survived(newList[5]),
         }
-    elif newList[4] == 'Created Player 1':
+    elif 'Created Player' in newList[4]: # 'Created Player 1' and/or 'Created Player n'
         return {
-            'type' : 'died',
+            'type' : 'creation',
             # 'uuid' : uuid4(),
             # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
             'timestamp' : newList[0],
@@ -253,3 +257,56 @@ def check_old_player_data() -> dict:
                 newData[key]['skills'] = value
     return newData
 # end check_old_player_data
+def truncate_logs() -> None:
+    pass
+# end truncate_logs
+
+def merge_duplicate_players() -> None: # Merge entries of players whose names appear twice in different cases i.e. "Pedguin" and "pedguin"
+    LOGGER.info(f'Searching for and merging duplicates in player_data.json')
+    old_player_data = read_data_file()
+    new_player_data = {}
+    unhandled_player_data = {}
+    new_player = ''
+    for player in old_player_data:
+
+        # Removing Anomalies
+        if player == old_player_data[player]['user_id']: # 76561198009712979
+            continue
+        if player == '76561198009712979': # This one is getting very frustrating... I can't seem to drop the "player"
+            # print(player)
+            continue
+        if '\"' in player:
+            new_player = player.replace('\"', '').lower()
+        else:
+            new_player = player.lower()
+
+        # Migrating Data
+        if new_player not in new_player_data:
+            new_player_data[new_player] = old_player_data[player]
+            if 'username' not in new_player_data[new_player]:
+                new_player_data[new_player]['username'] = new_player
+            if 'totalPlayTime' not in new_player_data[new_player]:
+                new_player_data[new_player]['totalPlayTime'] = 0
+            if 'characterLastLogin' not in new_player_data[new_player]:
+                new_player_data[new_player]['characterLastLogin'] = time.time()
+            if 'lastPoll' not in new_player_data[new_player]:
+                new_player_data[new_player]['lastPoll'] = time.time()
+        
+        # Merging Data
+        elif new_player in new_player_data:
+            if 'totalPlayTime' in old_player_data[player]:
+                new_player_data[new_player]['totalPlayTime'] += old_player_data[player]['totalPlayTime']
+            if new_player_data[new_player]['hoursSurvived'] == 0 and old_player_data[player]['hoursSurvived'] != 0:
+                new_player_data[new_player]['hoursSurvived'] = old_player_data[player]['hoursSurvived']
+            if new_player_data[new_player]['user_id'] == 'None':
+                new_player_data[new_player]['user_id'] = old_player_data[player]['user_id']
+
+        # Storing Other Anomalies
+        else:
+            LOGGER.warning(f'Unhandled player data! Sending to unhandled_player_data.json')
+            unhandled_player_data = read_data_file(file_path='./unhandled_player_data.json')
+            unhandled_player_data[player] = old_player_data[player]
+            save_data_file(player_data=unhandled_player_data, file_path='unhandled_player_data.json')
+    save_data_file(player_data=new_player_data)
+    LOGGER.info(f'Saved and unloaded player_data')
+# end merge_duplicate_players
