@@ -364,7 +364,7 @@ async def poll_players():
         player_survival_time.setdefault(player, 0)
         player_skills.setdefault(player, DEFAULT_SKILLS.copy())
         if channel and curr_activity != '':
-            if player in player_data:
+            if player.lower() in player_data:
                 player_data[player]['lastLogin'] = time.time()
                 await channel.send(f"```🟢 - {player.capitalize()} has joined the server!```")
 
