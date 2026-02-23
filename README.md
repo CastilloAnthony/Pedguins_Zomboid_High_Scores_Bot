@@ -8,7 +8,7 @@ A personalized discord bot made using the discord 2.6.4 library alongside the mc
 2. Launch bot.py
 3. Fill out the newly created settings_connection.json and settings_discord.json with your appropriate information.
 4. Relaunch bot.py
-5. You should now be able to interact with the bot in chat channels. Try the '!help' command.
+5. You should now be able to interact with the bot in discord channels. Try the '/command'
 
 ## Todo:
 - Implement a truncate pz_perk_log.json feature

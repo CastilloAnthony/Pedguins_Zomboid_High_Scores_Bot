@@ -237,6 +237,15 @@ def parse_skills(skills:str) -> dict:
     return newDict
 # end parseSkills
 
+def truncate_logs() -> None:
+    pass
+# end truncate_logs
+
+def compare_old_time_with_new() -> None:
+    # put into function below? or make a new one and ditch the below one?
+    pass # compares play time in player_times.json vs what is in the player_data.json it should be a straight replacement i believe
+# end compare_old_time_with_new
+
 def check_old_player_data() -> dict:
     files = ['./player_times.json', './seen_skills.json']
     oldData = {}
@@ -257,9 +266,6 @@ def check_old_player_data() -> dict:
                 newData[key]['skills'] = value
     return newData
 # end check_old_player_data
-def truncate_logs() -> None:
-    pass
-# end truncate_logs
 
 def merge_duplicate_players() -> None: # Merge entries of players whose names appear twice in different cases i.e. "Pedguin" and "pedguin"
     LOGGER.info(f'Searching for and merging duplicates in player_data.json')

@@ -364,8 +364,9 @@ async def poll_players():
         player_survival_time.setdefault(player, 0)
         player_skills.setdefault(player, DEFAULT_SKILLS.copy())
         if channel and curr_activity != '':
-            player_data[player]['lastLogin'] = time.time()
-            await channel.send(f"```🟢 - {player.capitalize()} has joined the server!```")
+            if player in player_data:
+                player_data[player]['lastLogin'] = time.time()
+                await channel.send(f"```🟢 - {player.capitalize()} has joined the server!```")
 
     # --- Handle leaves ---
     for player in online_players - current_players:
@@ -426,14 +427,12 @@ async def poll_players():
                         player_data[parsed['username']]['user_id'] = parsed['user_id']
                         player_data_functions.save_data_file(player_data)
                     if parsed['type'] == 'skills':
-                        print(player_data[parsed['username']]['hoursSurvived'])
                         player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
                         player_data[parsed['username']]['skills'] = parsed['skills']
                         player_data_functions.save_data_file(player_data)
                     elif parsed['type'] == 'login':
                         player_data[parsed['username']]['characterLastLogin'] = time.time()
                         player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
-                        player_data_functions.save_data_file(player_data)
                     elif parsed['type'] == 'creation':
                         player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
                         player_data[parsed['username']]['characterLastLogin'] = time.time()
@@ -694,6 +693,9 @@ async def time_slash(interaction: discord.Interaction, target: str):
         h, m, s = int(player_data[target.lower()]['totalPlayTime']//3600), int((player_data[target.lower()]['totalPlayTime']%3600)//60), int((player_data[target.lower()]['totalPlayTime']%3600)%60)
         status = "🟢" if target.lower() in online_players else "🔴"
         await interaction.response.send_message(f"```{status} - {target.capitalize()} has played for {h}h {m}m {s}s in total.```")
+    else:
+        await interaction.response.send_message(f'```Could not find a player named {target}.')
+            
     # now = time.time()
     # if target.lower() == "all":
     #     combined = {p:t for p,t in total_times.items()}
@@ -740,6 +742,8 @@ async def survived_slash(interaction: discord.Interaction, target: str):
         hours = int(player_data[target.lower()]['hoursSurvived']//3600)
         status = "🟢" if target.lower() in online_players else "🔴"
         await interaction.response.send_message(f"```{status} - {target.capitalize()} has survived for {hours} in-game hours.```")
+    else:
+        await interaction.response.send_message(f'```Could not find a player named {target}.')
 # end survived_slash
 
 @tree.command(name="skill", description="Show a player's skills or leaderboard for a skill")
@@ -909,6 +913,7 @@ async def commands_slash(interaction: discord.Interaction):
         "• `/online` — Show currently online players.\n"
         "• `/time [player]` — Show total playtime for a player.\n"
         "• `/time all` — Show top 10 players by playtime.\n"
+        "• `/survived [player]` — Show total hours survived for a player.\n"
         "• `/survived all` — Show top 10 players by survival time.\n"
         "• `/skill [skill]` — Show top 10 players by a skill.\n"
         "• `/skill [player]` — Show a specific players skills.\n"
