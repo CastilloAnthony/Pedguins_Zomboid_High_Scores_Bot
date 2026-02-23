@@ -1,3 +1,4 @@
+# This file developed by Anthony Castillo (ComradeWolf)
 import json
 from pathlib import Path
 import logging

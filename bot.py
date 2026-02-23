@@ -1,4 +1,4 @@
-# This file developed by Peter Mann (Pedguin) and includes modifications made by Anthony Castillo (ComradeWolf).
+# This file developed by Peter Mann (Pedguin) and includes modifications made by Anthony Castillo (ComradeWolf)
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands 
@@ -403,104 +403,104 @@ async def poll_players():
     try:
         transport = paramiko.Transport((settings_connection['SFTP_HOST'], settings_connection['SFTP_PORT']))
         transport.connect(username=settings_connection['SFTP_USER'], password=settings_connection['SFTP_PASS'])
+        sftp = paramiko.SFTPClient.from_transport(transport)
+
+        files = sftp.listdir(settings_connection['LOG_DIR'])
+        perk_logs = [f for f in files if f.endswith("_PerkLog.txt")]
+
+        if perk_logs:
+            latest_file = sorted(perk_logs)[-1]
+            remote_path = os.path.join(settings_connection['LOG_DIR'], latest_file)
+
+            # --- Correctly indented file reading ---
+            with sftp.open(remote_path, "r") as f:
+                for line in f:
+                    parsed = player_data_functions.log_parser(line)
+                    if parsed['timestamp'] not in pz_perk_log: # This line hasn't been added to the bot yet.
+                        pz_perk_log[parsed['timestamp']] = parsed
+                        if parsed['type'] == 'unhandled':
+                            player_data_functions.save_data_file(pz_perk_log, './pz_perk_log.json')
+                            continue
+                        if parsed['username'] not in player_data: # Detected a player not already player_data, creating a default
+                            player_data[parsed['username']] = player_data_functions.create_default_player_data(username=parsed['username'], user_id=parsed['user_id'])
+                            player_data_functions.save_data_file(player_data)
+                        if player_data[parsed['username']]['user_id'] == 'None' or parsed['user_id'] != player_data[parsed['username']]['user_id']:
+                            player_data[parsed['username']]['user_id'] = parsed['user_id']
+                            player_data_functions.save_data_file(player_data)
+                        if parsed['type'] == 'skills':
+                            player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
+                            player_data[parsed['username']]['skills'] = parsed['skills']
+                            player_data_functions.save_data_file(player_data)
+                        elif parsed['type'] == 'login':
+                            player_data[parsed['username']]['characterLastLogin'] = time.time()
+                            player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
+                        elif parsed['type'] == 'creation':
+                            player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
+                            player_data[parsed['username']]['characterLastLogin'] = time.time()
+                            player_data[parsed['username']]['skills'] = DEFAULT_SKILLS.copy()
+                            player_data_functions.save_data_file(player_data)
+                        elif parsed['type'] == 'died':
+                            # In-game time
+                            # print(parsed['hoursSurvived'])
+                            in_game_days = int(parsed['hoursSurvived'] // 24)
+                            in_game_hours = int(parsed['hoursSurvived'] % 24)
+                            if parsed['hoursSurvived'] >= 1:
+                                in_game_str = f"{in_game_days} days {in_game_hours} hours" if in_game_days > 0 else f"{in_game_hours} hours"
+                            else:
+                                in_game_str = "less than 1 hour"
+                            # Real-life time 
+                            # # 1 Full In-Game Day is 1 IRL Hour
+                            in_game_hours = parsed['hoursSurvived']
+                            real_days = int(in_game_hours // 24*24) # 24 Hours is 576 Zomboid Hours
+                            real_hours = int(in_game_hours // 24) # 1 Hour is 24 Zomboid Hours
+                            real_mins = int(in_game_hours // (24/60)) # 1/60 Hours is 0.4 Zomboid Hours
+                            # real_days = int(real_minutes // (24*60))
+                            # real_hours = int((real_minutes % (24*60)) // 60)
+                            # real_mins = int(real_minutes % 60)
+                            # print(real_days, real_hours, real_mins)
+                            if real_mins >= 1:
+                                real_str = f"{real_days} days {real_hours} hours {real_mins} minutes" if real_days > 0 else f"{real_hours} hours {real_mins} minutes"
+                            else:
+                                real_str = "less than a minute"
+                            msg = f"""
+                            ```💀 {parsed['username']} has died.
+                            Survived in-game: {in_game_str}
+                            Real-life: {real_str}```
+                            """
+                            if death_channel:
+                                await death_channel.send(msg)
+                        elif parsed['type'] == 'levelUp':
+                            player_data[parsed['username']]['user_id'] = parsed['user_id'] # Probably don't need to be updating this this
+                            player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
+                            # player_data[parsed['username']]['skills'] = DEFAULT_SKILLS.copy()
+                            # player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
+                            if int(player_data[parsed['username']]['skills'][parsed['skill']]) < int(parsed['level']): # Level Up
+                                player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
+                                player_data_functions.save_data_file(player_data)
+                                msg = f"```🎉 {parsed['username']} has leveled up their {parsed['skill']} to {parsed['level']}! {SKILL_EMOJIS.get(parsed['skill'], "")}```"
+                                channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
+                                if channel:
+                                    await channel.send(msg)
+                            else:
+                                player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
+                                player_data_functions.save_data_file(player_data)
+                            # elif int(player_data[parsed['username']]['skills'][parsed['skill']]) > int(parsed['level']): # Level Down
+                            #     player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
+                            #     player_data_functions.save_data_file(player_data)
+                            #     msg = f"```🎉 {parsed['username']} has leveled down their {parsed['skill']} to {parsed['level']}! {SKILL_EMOJIS.get(parsed['skill'], "")}```"
+                            #     channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
+                            #     if channel:
+                            #         await channel.send(msg)
+                        player_data_functions.save_data_file(pz_perk_log, './pz_perk_log.json')
+                    else:
+                        continue
+        sftp.close()
+        transport.close()
     except:
         error = traceback.format_exc()
         lines = error.split('\n')
         LOGGER.info('Can\'t reach Bisect Hosting '+str(lines[-2]))
         return
-    sftp = paramiko.SFTPClient.from_transport(transport)
-
-    files = sftp.listdir(settings_connection['LOG_DIR'])
-    perk_logs = [f for f in files if f.endswith("_PerkLog.txt")]
-
-    if perk_logs:
-        latest_file = sorted(perk_logs)[-1]
-        remote_path = os.path.join(settings_connection['LOG_DIR'], latest_file)
-
-        # --- Correctly indented file reading ---
-        with sftp.open(remote_path, "r") as f:
-            for line in f:
-                parsed = player_data_functions.log_parser(line)
-                if parsed['timestamp'] not in pz_perk_log: # This line hasn't been added to the bot yet.
-                    pz_perk_log[parsed['timestamp']] = parsed
-                    if parsed['type'] == 'unhandled':
-                        player_data_functions.save_data_file(pz_perk_log, './pz_perk_log.json')
-                        continue
-                    if parsed['username'] not in player_data: # Detected a player not already player_data, creating a default
-                        player_data[parsed['username']] = player_data_functions.create_default_player_data(username=parsed['username'], user_id=parsed['user_id'])
-                        player_data_functions.save_data_file(player_data)
-                    if player_data[parsed['username']]['user_id'] == 'None' or parsed['user_id'] != player_data[parsed['username']]['user_id']:
-                        player_data[parsed['username']]['user_id'] = parsed['user_id']
-                        player_data_functions.save_data_file(player_data)
-                    if parsed['type'] == 'skills':
-                        player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
-                        player_data[parsed['username']]['skills'] = parsed['skills']
-                        player_data_functions.save_data_file(player_data)
-                    elif parsed['type'] == 'login':
-                        player_data[parsed['username']]['characterLastLogin'] = time.time()
-                        player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
-                    elif parsed['type'] == 'creation':
-                        player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
-                        player_data[parsed['username']]['characterLastLogin'] = time.time()
-                        player_data[parsed['username']]['skills'] = DEFAULT_SKILLS.copy()
-                        player_data_functions.save_data_file(player_data)
-                    elif parsed['type'] == 'died':
-                        # In-game time
-                        # print(parsed['hoursSurvived'])
-                        in_game_days = int(parsed['hoursSurvived'] // 24)
-                        in_game_hours = int(parsed['hoursSurvived'] % 24)
-                        if parsed['hoursSurvived'] >= 1:
-                            in_game_str = f"{in_game_days} days {in_game_hours} hours" if in_game_days > 0 else f"{in_game_hours} hours"
-                        else:
-                            in_game_str = "less than 1 hour"
-                        # Real-life time 
-                        # # 1 Full In-Game Day is 1 IRL Hour
-                        in_game_hours = parsed['hoursSurvived']
-                        real_days = int(in_game_hours // 24*24) # 24 Hours is 576 Zomboid Hours
-                        real_hours = int(in_game_hours // 24) # 1 Hour is 24 Zomboid Hours
-                        real_mins = int(in_game_hours // (24/60)) # 1/60 Hours is 0.4 Zomboid Hours
-                        # real_days = int(real_minutes // (24*60))
-                        # real_hours = int((real_minutes % (24*60)) // 60)
-                        # real_mins = int(real_minutes % 60)
-                        # print(real_days, real_hours, real_mins)
-                        if real_mins >= 1:
-                            real_str = f"{real_days} days {real_hours} hours {real_mins} minutes" if real_days > 0 else f"{real_hours} hours {real_mins} minutes"
-                        else:
-                            real_str = "less than a minute"
-                        msg = f"""
-                        ```💀 {parsed['username']} has died.
-                        Survived in-game: {in_game_str}
-                        Real-life: {real_str}```
-                        """
-                        if death_channel:
-                            await death_channel.send(msg)
-                    elif parsed['type'] == 'levelUp':
-                        player_data[parsed['username']]['user_id'] = parsed['user_id'] # Probably don't need to be updating this this
-                        player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
-                        # player_data[parsed['username']]['skills'] = DEFAULT_SKILLS.copy()
-                        # player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
-                        if int(player_data[parsed['username']]['skills'][parsed['skill']]) < int(parsed['level']): # Level Up
-                            player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
-                            player_data_functions.save_data_file(player_data)
-                            msg = f"```🎉 {parsed['username']} has leveled up their {parsed['skill']} to {parsed['level']}! {SKILL_EMOJIS.get(parsed['skill'], "")}```"
-                            channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
-                            if channel:
-                                await channel.send(msg)
-                        else:
-                            player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
-                            player_data_functions.save_data_file(player_data)
-                        # elif int(player_data[parsed['username']]['skills'][parsed['skill']]) > int(parsed['level']): # Level Down
-                        #     player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
-                        #     player_data_functions.save_data_file(player_data)
-                        #     msg = f"```🎉 {parsed['username']} has leveled down their {parsed['skill']} to {parsed['level']}! {SKILL_EMOJIS.get(parsed['skill'], "")}```"
-                        #     channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
-                        #     if channel:
-                        #         await channel.send(msg)
-                    player_data_functions.save_data_file(pz_perk_log, './pz_perk_log.json')
-                else:
-                    continue
-    sftp.close()
-    transport.close()
     # save_times()
     # save_seen_skills()
                 # line = line.strip()
