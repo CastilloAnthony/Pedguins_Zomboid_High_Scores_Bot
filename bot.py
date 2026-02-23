@@ -400,8 +400,14 @@ async def poll_players():
     online_players.update(current_players)
 
     # --- SFTP: Check PerkLog for deaths & level-ups ---
-    transport = paramiko.Transport((settings_connection['SFTP_HOST'], settings_connection['SFTP_PORT']))
-    transport.connect(username=settings_connection['SFTP_USER'], password=settings_connection['SFTP_PASS'])
+    try:
+        transport = paramiko.Transport((settings_connection['SFTP_HOST'], settings_connection['SFTP_PORT']))
+        transport.connect(username=settings_connection['SFTP_USER'], password=settings_connection['SFTP_PASS'])
+    except:
+        error = traceback.format_exc()
+        lines = error.split('\n')
+        LOGGER.info('Can\'t reach Bisect Hosting '+str(lines[-2]))
+        return
     sftp = paramiko.SFTPClient.from_transport(transport)
 
     files = sftp.listdir(settings_connection['LOG_DIR'])
@@ -736,7 +742,7 @@ async def survived_slash(interaction: discord.Interaction, target: str):
         lines = []
         for p, hours in player_times[:10]: # Top 10 (arrays/lists start at 0 and this syntax goes up to, but does not include the last index)
             status = "🟢" if p in online_players else "🔴"
-            lines.append(f"{status} - {p.capitalize()}: {hours}hours")
+            lines.append(f"{status} - {p.capitalize()}: {hours} hours")
         await interaction.response.send_message("```🕒 - Top 10 Current Character by In-Game Survival Hours:\n" + "\n".join((lines)) + "```")
     elif target.lower() in player_data: # A Singlar Player
         hours = int(player_data[target.lower()]['hoursSurvived']//3600)
