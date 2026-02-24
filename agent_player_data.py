@@ -17,6 +17,7 @@ class Agent_Player_Data():
         """
         self.__settings = read_connection_settings()
         self.__player_data = read_json_file(file_path='./player_data.json') # Reads player_data.json
+        self.poll_player_data()
     # end __init__
 
     def poll_player_data(self) -> bool:
@@ -45,6 +46,7 @@ class Agent_Player_Data():
             lines = error.split('\n')
             LOGGER.info('Can\'t reach Bisect Hosting: '+str(lines[-2]))
             return False
+        self.update_player_data()
         return True
     # end poll_server
 

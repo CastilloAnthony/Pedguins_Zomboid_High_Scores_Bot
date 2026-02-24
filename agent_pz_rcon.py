@@ -15,6 +15,7 @@ class Agent_PZ_RCON():
         self.__settings = read_connection_settings()
         self.__online_players = set()
         self.__server_status = False
+        self.poll_pz_server()
     # end __init__
 
     def poll_pz_server(self) -> None:

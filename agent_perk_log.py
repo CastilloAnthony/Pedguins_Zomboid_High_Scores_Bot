@@ -18,9 +18,10 @@ class Agent_Perk_Log():
         self.__settings = read_connection_settings()
         self.__perk_log = read_json_file('pz_perk_log.json')
         self.__latest_perk_log_filename = ''
+        self.poll_perk_log()
     # end __init__
 
-    def poll_log(self) -> bool:
+    def poll_perk_log(self) -> bool:
         """Connects to and copies *_PerkLog.json files from the sftp server host
 
         Returns:
@@ -46,8 +47,9 @@ class Agent_Perk_Log():
             lines = error.split('\n')
             LOGGER.info('Can\'t reach Bisect Hosting: '+str(lines[-2]))
             return False
+        self.update_perk_log()
         return True
-    # end poll_log
+    # end poll_perk_log
 
     def update_perk_log(self) -> None:
         """_summary_
@@ -82,6 +84,6 @@ class Agent_Perk_Log():
 
 if __name__ == '__main__': # For testing purposes
     newAgent = Agent_Perk_Log()
-    newAgent.poll_log()
+    newAgent.poll_perk_log()
     newAgent.update_perk_log()
     print(newAgent.get_log())
