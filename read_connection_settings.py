@@ -17,8 +17,9 @@ def read_connection_settings(file_path = './settings_connection.json') -> dict:
                 "SFTP_PASS" : "",
                 "LOG_DIR" : "/path/to/logs/",
                 "POLLING_RATE" : 1,
-                "SFTP_PLAYER_DATA_PATH" : "C:\\Users\\Anthony Castillo\\Zomboid\\Lua\\PedguinsHighScoresCollector",
-                "LOCAL_PLAYER_DATA_PATH" : "./PedguinsHighScoresCollector"
+                "SFTP_PLAYER_DATA_PATH" : "./cache/Lua/PedguinsHighScoresCollector",
+                "LOCAL_PLAYER_DATA_PATH" : "./PedguinsHighScoresCollector",
+                "LOCAL_PERK_LOG_PATH" : "./PerkLogs"
             }, file, indent=4)
         LOGGER.info('Created new settings_connection.json file, please fill out missing passwords and/or incorrect and/or missing data.')
     else:
