@@ -1,4 +1,7 @@
 # This file developed by Peter Mann (Pedguin) and includes modifications made by Anthony Castillo (ComradeWolf)
+# Last Update: 2026-24-02
+# Code for sync command retrieved from https://about.abstractumbra.dev/discord.py/2023/01/29/sync-command-example.html
+
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands 
@@ -9,6 +12,7 @@ import json
 import atexit
 import os
 import re
+from typing import Literal, Optional
 
 import traceback
 import logging
@@ -23,12 +27,18 @@ target_bot = 'pedguinBot' #'personalAssistant' #'Pedguins_Zomboid_High_Scores_Bo
 # Examples of Accessing Data:
 # settings_discord['target_bot']['botToken']            # target_bot is a sub-dictionary inside of settings_discord, technically, we could have multiple bots listed in the json.
 # settings_connection['RCON_HOST']
-polling_rate = 1/60*60 # Seconds (Note: 1/60 * 60 is 1 second)
+# polling_rate = 1/60*60 # Seconds (Note: 1/60 * 60 is 1 second)
 
 import player_data_functions
-player_data_functions.merge_duplicate_players()
-pz_perk_log = player_data_functions.read_json_file('./pz_perk_log.json')
-player_data = player_data_functions.read_json_file('./player_data.json')
+# player_data_functions.merge_duplicate_players()
+pz_perk_log = player_data_functions.read_json_file('./pz_perk_log.json') # Memory bank
+
+from agent_player_data import Agent_Player_Data
+from agent_perk_log import Agent_Perk_Log
+from agent_pz_rcon import Agent_PZ_RCON
+player_data_agent = Agent_Player_Data() #player_data_functions.read_json_file('./player_data.json')
+pz_perk_log_agent = Agent_Perk_Log()
+pz_rcon_agent = Agent_PZ_RCON()
 
 # --------------------
 # DISCORD INTENTS
@@ -36,6 +46,7 @@ player_data = player_data_functions.read_json_file('./player_data.json')
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
+curr_activity = '' # Keeps track of the last status update, we don't need to send an update out if the bot already has the same activity set.
 tree = bot.tree  # command tree for slash commands
 
 # --------------------
@@ -51,8 +62,8 @@ seen_deaths = set()
 server_online = False
 curr_activity = "" # Keeps track of the last status update, we don't need to send an update out if the bot already has the same activity set.
 
-SAVE_FILE = "player_times.json"
-SEEN_SKILLS_FILE = "seen_skills.json"
+# SAVE_FILE = "player_times.json"
+# SEEN_SKILLS_FILE = "seen_skills.json"
 
 # --------------------
 # SKILL EMOJIS & ALIASES
@@ -222,80 +233,82 @@ DEFAULT_SKILLS = {
 # --------------------
 # LOAD / SAVE FUNCTIONS
 # --------------------
-def load_times():
-    global total_times
-    try:
-        with open(SAVE_FILE, "r") as f:
-            total_times.update({k.lower(): float(v) for k, v in json.load(f).items()})
-        LOGGER.info("Player total times loaded.")
-    except FileNotFoundError:
-        total_times.clear()
-        LOGGER.info("No previous total times found.")
+# def load_times():
+#     global total_times
+#     try:
+#         with open(SAVE_FILE, "r") as f:
+#             total_times.update({k.lower(): float(v) for k, v in json.load(f).items()})
+#         LOGGER.info("Player total times loaded.")
+#     except FileNotFoundError:
+#         total_times.clear()
+#         LOGGER.info("No previous total times found.")
 
 
-def save_times():
-    global total_times
-    with open(SAVE_FILE, "w") as f:
-        json.dump(total_times, f, indent=4)
-    # LOGGER.info("Player total times saved.") # Not necessary and clogs up the terminal with double print alongside save_seen_skills
+# def save_times():
+#     global total_times
+#     with open(SAVE_FILE, "w") as f:
+#         json.dump(total_times, f, indent=4)
+#     # LOGGER.info("Player total times saved.") # Not necessary and clogs up the terminal with double print alongside save_seen_skills
 
 
-def load_seen_skills():
-    global player_skills
-    try:
-        with open(SEEN_SKILLS_FILE, "r") as f:
-            player_skills.update(json.load(f))
-        LOGGER.info("Seen skills loaded.")
-    except FileNotFoundError:
-        player_skills.clear()
-        LOGGER.info("No previous skill data found.")
+# def load_seen_skills():
+#     global player_skills
+#     try:
+#         with open(SEEN_SKILLS_FILE, "r") as f:
+#             player_skills.update(json.load(f))
+#         LOGGER.info("Seen skills loaded.")
+#     except FileNotFoundError:
+#         player_skills.clear()
+#         LOGGER.info("No previous skill data found.")
 
 
-def sanitize_player_skills():
-    """Force all player keys to lowercase and ensure full DEFAULT_SKILLS"""
-    global player_skills
-    fixed = {}
-    for key, skills in player_skills.items():
-        full = DEFAULT_SKILLS.copy()
-        if isinstance(skills, dict):
-            full.update(skills)
-        fixed[key.lower()] = full
+# def sanitize_player_skills():
+#     """Force all player keys to lowercase and ensure full DEFAULT_SKILLS"""
+#     global player_skills
+#     fixed = {}
+#     for key, skills in player_skills.items():
+#         full = DEFAULT_SKILLS.copy()
+#         if isinstance(skills, dict):
+#             full.update(skills)
+#         fixed[key.lower()] = full
 
-    player_skills.clear()
-    player_skills.update(fixed)
-    LOGGER.info("Player skills sanitized (lowercase keys, defaults filled).")
+#     player_skills.clear()
+#     player_skills.update(fixed)
+#     LOGGER.info("Player skills sanitized (lowercase keys, defaults filled).")
 
 
-def save_seen_skills():
-    global player_skills
-    with open(SEEN_SKILLS_FILE, "w") as f:
-        json.dump(player_skills, f, indent=4)
-    # LOGGER.info("Seen skills saved.") # Not necessary and clogs up the terminal with double print alongside save_times
+# def save_seen_skills():
+#     global player_skills
+#     with open(SEEN_SKILLS_FILE, "w") as f:
+#         json.dump(player_skills, f, indent=4)
+#     # LOGGER.info("Seen skills saved.") # Not necessary and clogs up the terminal with double print alongside save_times
 
 
 # ---- initial load on startup ----
-load_times()
-load_seen_skills()
-sanitize_player_skills()
+# load_times()
+# load_seen_skills()
+# sanitize_player_skills()
 
-temp_player_data = player_data_functions.check_old_player_data()
-if not temp_player_data:
-    pass
-else:
-    for key, value in temp_player_data.items():
-        if key not in player_data:
-            player_data[key] = value
+# temp_player_data = player_data_functions.check_old_player_data()
+# if not temp_player_data:
+#     pass
+# else:
+#     for key, value in temp_player_data.items():
+#         if key not in player_data:
+#             player_data[key] = value
 
+# New data is always saved now
 # atexit.register(save_times)
 # atexit.register(save_seen_skills)
-atexit.register(player_data_functions.save_json_file, player_data, './player_data.json')
+# atexit.register(player_data_functions.save_json_file, player_data, './player_data.json')
 # atexit.register(player_data_functions.save_data_file, pz_perk_log, './pz_perk_log.json')
 
 
 # --------------------
 # SERVER STATUS ANNOUNCE
 # --------------------
-async def announce_server_status(online: bool = server_online):
+async def announce_server_status(online: bool = False):
+    global settings_discord, target_bot
     channel = bot.get_channel(settings_discord[target_bot]['ANNOUNCE_CHANNEL_ID'])
     if not channel:
         return
@@ -307,10 +320,12 @@ async def announce_server_status(online: bool = server_online):
 # --------------------
 @bot.event
 async def on_ready():
+    global bot, tree
     LOGGER.info(f"{bot.user} has connected to Discord!")
 
-    # Sync slash commands
-    await tree.sync()
+    # Sync slash commands ( Syncing here could cause us to become ratelimited by discord )
+    # Instead we will sync commands with the /sync command now (and temporarily in the /commands)
+    # await tree.sync()  # Will be moved to the sync command in the future (once we verify that command works/is available)
     # await bot.change_presence(status=discord.Status.dnd, activity=discord.Game(name=curr_activity))
     # Start loops that exist
     # poll_players.start()
@@ -327,180 +342,245 @@ async def on_ready():
 
 # @tasks.loop(seconds=polling_rate)
 async def poll_players():
-    global online_players, player_sessions, total_times, player_survival_time, player_skills, server_online
-    global pz_perk_log, player_data
+    global online_players #, player_sessions, total_times, player_survival_time, player_skills, server_online
+    global pz_perk_log_agent, player_data_agent, pz_rcon_agent, settings_discord, target_bot
     channel = bot.get_channel(settings_discord[target_bot]['ANNOUNCE_CHANNEL_ID'])
     death_channel = bot.get_channel(settings_discord[target_bot]['ANNOUNCE_CHANNEL_ID'])
 
     # try:
     # --- RCON: get online players ---
-    try:
-        with MCRcon(settings_connection['RCON_HOST'], settings_connection['RCON_PASSWORD'], port=settings_connection['RCON_PORT']) as rcon:
-            server_online = True
-            response = rcon.command("players") or rcon.command("who")
-    except Exception:
-        online_players.clear()
-        server_online = False
-        error = traceback.format_exc()
-        lines = error.split('\n')
-        LOGGER.info('Can\'t reach Project Zomboid Server '+str(lines[-2]))
-        return
-    current_players = set()
-    now = time.time()
+    # try:
+    #     with MCRcon(settings_connection['RCON_HOST'], settings_connection['RCON_PASSWORD'], port=settings_connection['RCON_PORT']) as rcon:
+    #         server_online = True
+    #         response = rcon.command("players") or rcon.command("who")
+    # except Exception:
+    #     online_players.clear()
+    #     server_online = False
+    #     error = traceback.format_exc()
+    #     lines = error.split('\n')
+    #     LOGGER.info('Can\'t reach Project Zomboid Server '+str(lines[-2]))
+    #     return
+    # current_players = set()
+    # now = time.time()
 
-    # --- Parse RCON player list ---
-    for line in response.splitlines():
-        clean = line.strip().lstrip("-•* ").strip()
-        lower = clean.lower()
-        if not clean or "unknown command" in lower or lower.startswith(("players","connected","there are","total")):
-            continue
-        if not clean.replace("_","").isalnum():
-            continue
-        current_players.add(lower)
+    # # --- Parse RCON player list ---
+    # for line in response.splitlines():
+    #     clean = line.strip().lstrip("-•* ").strip()
+    #     lower = clean.lower()
+    #     if not clean or "unknown command" in lower or lower.startswith(("players","connected","there are","total")):
+    #         continue
+    #     if not clean.replace("_","").isalnum():
+    #         continue
+    #     current_players.add(lower)
 
+    # now = time.time()
+    
+    
+    pz_rcon_agent.poll_pz_server()
+    player_data_agent.poll_player_data()
+    pz_perk_log_agent.poll_perk_log()
+    current_players = pz_rcon_agent.get_online_players()
+    
+    # print('current_players = ', current_players)
+    # print('online_players = ', online_players)
     # --- Handle joins ---
     for player in current_players - online_players:
-        player_sessions[player] = now
-        player_survival_time.setdefault(player, 0)
-        player_skills.setdefault(player, DEFAULT_SKILLS.copy())
+        # player_sessions[player] = now
+        # player_survival_time.setdefault(player, 0)
+        # player_skills.setdefault(player, DEFAULT_SKILLS.copy())
         if channel and curr_activity != '':
-            if player.lower() in player_data:
-                player_data[player]['lastLogin'] = time.time()
+            if player in player_data_agent.get_player_data():
+                player_data_agent.update_player_last_login(player, time.time())
                 await channel.send(f"```🟢 - {player.capitalize()} has joined the server!```")
 
     # --- Handle leaves ---
     for player in online_players - current_players:
-        start = player_sessions.pop(player, now)
-        session = now - player_data[player]['lastLogin']
-        total_times[player] = total_times.get(player, 0) + session
-        player_survival_time[player] = player_survival_time.get(player, 0) + session
-        duration = time.time() - player_data[player]['lastLogin']
+        # start = player_sessions.pop(player, now)
+        # session = now - player_data[player]['lastLogin']
+        # total_times[player] = total_times.get(player, 0) + session
+        # player_survival_time[player] = player_survival_time.get(player, 0) + session
+        duration = time.time() - player_data_agent.get_player_data()[player]['lastLogin']
         h, m, s = int(duration//3600), int((duration%3600)//60), int((duration%3600)%60)
         if channel:
             await channel.send(f"```🔴 - {player.capitalize()} has left the server.\nSession: {h}h {m}m {s}s```")
 
     # --- Increment survival and total time for current online players ---
     for player in current_players & online_players:
-        session = now - player_sessions.get(player, now)
-        total_times[player] = total_times.get(player, 0) + session
-        player_survival_time[player] = player_survival_time.get(player, 0) + session
-        player_sessions[player] = now
+        # session = now - player_sessions.get(player, now)
+        # total_times[player] = total_times.get(player, 0) + session
+        # player_survival_time[player] = player_survival_time.get(player, 0) + session
+        # player_sessions[player] = now
         # print(f'{player} {session} {player_survival_time.get(player, 0)} {total_times.get(player, 0)}')
-        if player.lower() in player_data:
-            player_data[player]['totalPlayTime'] += time.time() - player_data[player]['lastPoll']
-            player_data[player]['lastPoll'] = time.time()
+        if player in player_data_agent.get_player_data():
+            player_data_agent.update_player_total_play_time(player)#, time.time() - player_data_agent.get_player_data()[player]['lastPoll'])
+            # player_data_agent.update_player_last_poll(player, time.time())
+            # player_data[player]['totalPlayTime'] += time.time() - player_data[player]['lastPoll']
+            # player_data[player]['lastPoll'] = time.time()
             # player_data[player] = player_data_functions.create_default_player_data(username=player)
-            player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
+            # player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
         # if 'totalPlayTime' not in player_data[player]: # Temporary until we find the real problem
         #     player_data[player]['totalPlayTime'] = 0
         
-    player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
+    # player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
 
     online_players.clear()
     online_players.update(current_players)
 
-    # --- SFTP: Check PerkLog for deaths & level-ups ---
-    try:
-        transport = paramiko.Transport((settings_connection['SFTP_HOST'], settings_connection['SFTP_PORT']))
-        transport.connect(username=settings_connection['SFTP_USER'], password=settings_connection['SFTP_PASS'])
-        sftp = paramiko.SFTPClient.from_transport(transport)
+    new_perk_log = pz_perk_log_agent.get_new_log().copy()
+    for entry in new_perk_log:
+        if new_perk_log[entry]['type'] == 'unhandled':
+            pz_perk_log_agent.update_new_perk_log(new_perk_log[entry]['timestamp'])
+            continue
+        if new_perk_log[entry]['type'] == 'skills':
+            pz_perk_log_agent.update_new_perk_log(new_perk_log[entry]['timestamp'])
+        elif new_perk_log[entry]['type'] == 'login':
+            pz_perk_log_agent.update_new_perk_log(new_perk_log[entry]['timestamp'])
+        elif new_perk_log[entry]['type'] == 'creation':
+            pz_perk_log_agent.update_new_perk_log(new_perk_log[entry]['timestamp'])
+        elif new_perk_log[entry]['type'] == 'died':
+            # In-game time
+            player = player_data_agent.get_player_data()[new_perk_log[entry]['username']]
+            in_game_days = int(player['hours_survived'] // (24))
+            in_game_hours = int(player['hours_survived'])
+            in_game_minutes = int(player['hours_survived'] * 60)
+            if player['hours_survived'] >= 1:
+                in_game_str = f"{in_game_days} days {in_game_hours} hours {in_game_minutes} minutes" if in_game_days > 0 else f"{in_game_hours} hours {in_game_minutes} minutes"
+            else:
+                in_game_str = "less than 1 hour"
+            # Real-life time 
+            # # 1 Full In-Game Day is 1 IRL Hour
+            in_game_hours = player['hours_survived']
+            real_days = int(in_game_hours // 24*24) # 24 Hours is 576 Zomboid Hours
+            real_hours = int(in_game_hours // 24) # 1 Hour is 24 Zomboid Hours
+            real_mins = int(in_game_hours // (24/60)) # 1/60 Hours is 0.4 Zomboid Hours
+            if real_mins >= 1:
+                real_str = f"{real_days} days {real_hours} hours {real_mins} minutes" if real_days > 0 else f"{real_hours} hours {real_mins} minutes"
+            else:
+                real_str = "less than a minute"
+            msg = f"""
+            ```💀 {new_perk_log[entry]['username']} has died.
+            Survived in-game: {in_game_str}
+            Real-life: {real_str}```
+            """
+            if death_channel:
+                await death_channel.send(msg)
+            pz_perk_log_agent.update_new_perk_log(new_perk_log[entry]['timestamp'])
+        elif new_perk_log[entry]['type'] == 'levelUp':
+            # if int(player_data[entry['username']]['skills'][entry['skill']]) < int(entry['level']): # Level Up
+            #     player_data[entry['username']]['skills'][entry['skill']] = entry['level']
+            #     msg = f"```🎉 {entry['username']} has leveled up their {entry['skill']} to {entry['level']}! {SKILL_EMOJIS.get(entry['skill'], "")}```"
+            #     channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
+            #     if channel:
+            #         await channel.send(msg)
+            # else:
+            #     player_data[entry['username']]['skills'][entry['skill']] = entry['level']
+            pz_perk_log_agent.update_new_perk_log(new_perk_log[entry]['timestamp'])
 
-        files = sftp.listdir(settings_connection['LOG_DIR'])
-        perk_logs = [f for f in files if f.endswith("_PerkLog.txt")]
 
-        if perk_logs:
-            latest_file = sorted(perk_logs)[-1]
-            remote_path = os.path.join(settings_connection['LOG_DIR'], latest_file)
 
-            # --- Correctly indented file reading ---
-            with sftp.open(remote_path, "r") as f:
-                for line in f:
-                    parsed = player_data_functions.log_parser(line)
-                    if parsed['timestamp'] not in pz_perk_log: # This line hasn't been added to the bot yet.
-                        pz_perk_log[parsed['timestamp']] = parsed
-                        if parsed['type'] == 'unhandled':
-                            player_data_functions.save_json_file(json_dict=pz_perk_log, file_path='./pz_perk_log.json')
-                            continue
-                        if parsed['username'] not in player_data: # Detected a player not already player_data, creating a default
-                            player_data[parsed['username']] = player_data_functions.create_default_player_data(username=parsed['username'], user_id=parsed['user_id'])
-                            player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
-                        if player_data[parsed['username']]['user_id'] == 'None' or parsed['user_id'] != player_data[parsed['username']]['user_id']:
-                            player_data[parsed['username']]['user_id'] = parsed['user_id']
-                            player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
-                        if parsed['type'] == 'skills':
-                            player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
-                            player_data[parsed['username']]['skills'] = parsed['skills']
-                            player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
-                        elif parsed['type'] == 'login':
-                            player_data[parsed['username']]['characterLastLogin'] = time.time()
-                            player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
-                        elif parsed['type'] == 'creation':
-                            player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
-                            player_data[parsed['username']]['characterLastLogin'] = time.time()
-                            player_data[parsed['username']]['skills'] = DEFAULT_SKILLS.copy()
-                            player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
-                        elif parsed['type'] == 'died':
-                            # In-game time
-                            # print(parsed['hoursSurvived'])
-                            in_game_days = int(parsed['hoursSurvived'] // 24)
-                            in_game_hours = int(parsed['hoursSurvived'] % 24)
-                            if parsed['hoursSurvived'] >= 1:
-                                in_game_str = f"{in_game_days} days {in_game_hours} hours" if in_game_days > 0 else f"{in_game_hours} hours"
-                            else:
-                                in_game_str = "less than 1 hour"
-                            # Real-life time 
-                            # # 1 Full In-Game Day is 1 IRL Hour
-                            in_game_hours = parsed['hoursSurvived']
-                            real_days = int(in_game_hours // 24*24) # 24 Hours is 576 Zomboid Hours
-                            real_hours = int(in_game_hours // 24) # 1 Hour is 24 Zomboid Hours
-                            real_mins = int(in_game_hours // (24/60)) # 1/60 Hours is 0.4 Zomboid Hours
-                            # real_days = int(real_minutes // (24*60))
-                            # real_hours = int((real_minutes % (24*60)) // 60)
-                            # real_mins = int(real_minutes % 60)
-                            # print(real_days, real_hours, real_mins)
-                            if real_mins >= 1:
-                                real_str = f"{real_days} days {real_hours} hours {real_mins} minutes" if real_days > 0 else f"{real_hours} hours {real_mins} minutes"
-                            else:
-                                real_str = "less than a minute"
-                            msg = f"""
-                            ```💀 {parsed['username']} has died.
-                            Survived in-game: {in_game_str}
-                            Real-life: {real_str}```
-                            """
-                            if death_channel:
-                                await death_channel.send(msg)
-                        elif parsed['type'] == 'levelUp':
-                            player_data[parsed['username']]['user_id'] = parsed['user_id'] # Probably don't need to be updating this this
-                            player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
-                            # player_data[parsed['username']]['skills'] = DEFAULT_SKILLS.copy()
-                            # player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
-                            if int(player_data[parsed['username']]['skills'][parsed['skill']]) < int(parsed['level']): # Level Up
-                                player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
-                                player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
-                                msg = f"```🎉 {parsed['username']} has leveled up their {parsed['skill']} to {parsed['level']}! {SKILL_EMOJIS.get(parsed['skill'], "")}```"
-                                channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
-                                if channel:
-                                    await channel.send(msg)
-                            else:
-                                player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
-                                player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
-                            # elif int(player_data[parsed['username']]['skills'][parsed['skill']]) > int(parsed['level']): # Level Down
-                            #     player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
-                            #     player_data_functions.save_data_file(player_data)
-                            #     msg = f"```🎉 {parsed['username']} has leveled down their {parsed['skill']} to {parsed['level']}! {SKILL_EMOJIS.get(parsed['skill'], "")}```"
-                            #     channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
-                            #     if channel:
-                            #         await channel.send(msg)
-                        player_data_functions.save_json_file(json_dict=pz_perk_log, file_path='./pz_perk_log.json')
-                    else:
-                        continue
-        sftp.close()
-        transport.close()
-    except:
-        error = traceback.format_exc()
-        lines = error.split('\n')
-        LOGGER.info('Can\'t reach Bisect Hosting '+str(lines[-2]))
-        return
+    # # --- SFTP: Check PerkLog for deaths & level-ups ---
+    # try:
+    #     transport = paramiko.Transport((settings_connection['SFTP_HOST'], settings_connection['SFTP_PORT']))
+    #     transport.connect(username=settings_connection['SFTP_USER'], password=settings_connection['SFTP_PASS'])
+    #     sftp = paramiko.SFTPClient.from_transport(transport)
+
+    #     files = sftp.listdir(settings_connection['LOG_DIR'])
+    #     perk_logs = [f for f in files if f.endswith("_PerkLog.txt")]
+
+    #     if perk_logs:
+    #         latest_file = sorted(perk_logs)[-1]
+    #         remote_path = os.path.join(settings_connection['LOG_DIR'], latest_file)
+
+    #         # --- Correctly indented file reading ---
+    #         with sftp.open(remote_path, "r") as f:
+    #             for line in f:
+    #                 parsed = player_data_functions.log_parser(line)
+    #                 if parsed['timestamp'] not in pz_perk_log: # This line hasn't been added to the bot yet.
+    #                     pz_perk_log[parsed['timestamp']] = parsed
+
+    #                     if parsed['type'] == 'unhandled':
+    #                         player_data_functions.save_json_file(json_dict=pz_perk_log, file_path='./pz_perk_log.json')
+    #                         continue
+    #                     if parsed['username'] not in player_data: # Detected a player not already player_data, creating a default
+    #                         player_data[parsed['username']] = player_data_functions.create_default_player_data(username=parsed['username'], user_id=parsed['user_id'])
+    #                         player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
+    #                     if player_data[parsed['username']]['user_id'] == 'None' or parsed['user_id'] != player_data[parsed['username']]['user_id']:
+    #                         player_data[parsed['username']]['user_id'] = parsed['user_id']
+    #                         player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
+    #                     if parsed['type'] == 'skills':
+    #                         player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
+    #                         player_data[parsed['username']]['skills'] = parsed['skills']
+    #                         player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
+    #                     elif parsed['type'] == 'login':
+    #                         player_data[parsed['username']]['characterLastLogin'] = time.time()
+    #                         player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
+    #                     elif parsed['type'] == 'creation':
+    #                         player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
+    #                         player_data[parsed['username']]['characterLastLogin'] = time.time()
+    #                         player_data[parsed['username']]['skills'] = DEFAULT_SKILLS.copy()
+    #                         player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
+    #                     elif parsed['type'] == 'died':
+    #                         # In-game time
+    #                         # print(parsed['hoursSurvived'])
+    #                         in_game_days = int(parsed['hoursSurvived'] // 24)
+    #                         in_game_hours = int(parsed['hoursSurvived'] % 24)
+    #                         if parsed['hoursSurvived'] >= 1:
+    #                             in_game_str = f"{in_game_days} days {in_game_hours} hours" if in_game_days > 0 else f"{in_game_hours} hours"
+    #                         else:
+    #                             in_game_str = "less than 1 hour"
+    #                         # Real-life time 
+    #                         # # 1 Full In-Game Day is 1 IRL Hour
+    #                         in_game_hours = parsed['hoursSurvived']
+    #                         real_days = int(in_game_hours // 24*24) # 24 Hours is 576 Zomboid Hours
+    #                         real_hours = int(in_game_hours // 24) # 1 Hour is 24 Zomboid Hours
+    #                         real_mins = int(in_game_hours // (24/60)) # 1/60 Hours is 0.4 Zomboid Hours
+    #                         # real_days = int(real_minutes // (24*60))
+    #                         # real_hours = int((real_minutes % (24*60)) // 60)
+    #                         # real_mins = int(real_minutes % 60)
+    #                         # print(real_days, real_hours, real_mins)
+    #                         if real_mins >= 1:
+    #                             real_str = f"{real_days} days {real_hours} hours {real_mins} minutes" if real_days > 0 else f"{real_hours} hours {real_mins} minutes"
+    #                         else:
+    #                             real_str = "less than a minute"
+    #                         msg = f"""
+    #                         ```💀 {parsed['username']} has died.
+    #                         Survived in-game: {in_game_str}
+    #                         Real-life: {real_str}```
+    #                         """
+    #                         if death_channel:
+    #                             await death_channel.send(msg)
+    #                     elif parsed['type'] == 'levelUp':
+    #                         player_data[parsed['username']]['user_id'] = parsed['user_id'] # Probably don't need to be updating this this
+    #                         player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
+    #                         # player_data[parsed['username']]['skills'] = DEFAULT_SKILLS.copy()
+    #                         # player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
+    #                         if int(player_data[parsed['username']]['skills'][parsed['skill']]) < int(parsed['level']): # Level Up
+    #                             player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
+    #                             player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
+    #                             msg = f"```🎉 {parsed['username']} has leveled up their {parsed['skill']} to {parsed['level']}! {SKILL_EMOJIS.get(parsed['skill'], "")}```"
+    #                             channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
+    #                             if channel:
+    #                                 await channel.send(msg)
+    #                         else:
+    #                             player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
+    #                             player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
+    #                         # elif int(player_data[parsed['username']]['skills'][parsed['skill']]) > int(parsed['level']): # Level Down
+    #                         #     player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
+    #                         #     player_data_functions.save_data_file(player_data)
+    #                         #     msg = f"```🎉 {parsed['username']} has leveled down their {parsed['skill']} to {parsed['level']}! {SKILL_EMOJIS.get(parsed['skill'], "")}```"
+    #                         #     channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
+    #                         #     if channel:
+    #                         #         await channel.send(msg)
+    #                     player_data_functions.save_json_file(json_dict=pz_perk_log, file_path='./pz_perk_log.json')
+    #                 else:
+    #                     continue
+    #     sftp.close()
+    #     transport.close()
+    # except:
+    #     error = traceback.format_exc()
+    #     lines = error.split('\n')
+    #     LOGGER.info('Can\'t reach Bisect Hosting '+str(lines[-2]))
+    #     return
     # save_times()
     # save_seen_skills()
                 # line = line.strip()
@@ -620,16 +700,15 @@ async def poll_players():
 # DISCORD STATUS
 # --------------------
 # @tasks.loop(seconds=polling_rate)
-# async def update_status():
 async def update_status():
-    global curr_activity, online_players, server_online
+    global curr_activity #, online_players, server_online
     try:
-        if server_online:
+        if pz_rcon_agent.get_server_status():
             activity_name = ""
-            if len(online_players)==0:
+            if len(pz_rcon_agent.get_online_players())==0:
                 activity_name = "🟢 Server Online"
             else:
-                activity_name = f"🟢 {len(online_players)} Survivors Online"
+                activity_name = f"🟢 {len(pz_rcon_agent.get_online_players())} Survivors Online"
             if 'Online' not in curr_activity:
                 await announce_server_status(True)
             if curr_activity != activity_name:
@@ -664,43 +743,55 @@ async def periodic_save():
 
 @tree.command(name="online", description="Show currently online players.")
 async def online_slash(interaction: discord.Interaction):
-    global online_players#, player_sessions
-    global player_data
-    if not online_players:
+    global pz_rcon_agent
+    global player_data_agent
+
+    if not pz_rcon_agent.get_online_players():
         await interaction.response.send_message("```🟢 - No players are currently online.```")
         return
     lines = []
     now = time.time()
-    for player in sorted(online_players):
-        duration = now - player_data[player]['lastLogin']#player_sessions.get(player, now)
-        h, m, s = int(duration//3600), int((duration%3600)//60), int((duration%(60*60)%60))
-        lines.append(f"- {player.capitalize()} ({h}h {m}m {s}s)")
-    await interaction.response.send_message(f"```🟢 - Players Online (Session Time):\n" + "\n".join(lines) + f"\n\nTotal: {len(online_players)}```")
+    for player in sorted(pz_rcon_agent.get_online_players()):
+        if player in player_data_agent.get_player_data():
+            duration = now - player_data_agent.get_player_data()[player]['lastLogin'] #player_sessions.get(player, now)
+            h, m, s = int(duration//3600), int((duration%3600)//60), int((duration%(60*60)%60))
+            lines.append(f"- {player.capitalize()} ({h}h {m}m {s}s)")
+    await interaction.response.send_message(f"```🟢 - Players Online (Session Time):\n" + "\n".join(lines) + f"\n\nTotal: {len(pz_rcon_agent.get_online_players())}```")
 # end online_slash
 
 @tree.command(name="time", description="Show total playtime for a player.")
 @app_commands.describe(target="Player name or 'all'")
 async def time_slash(interaction: discord.Interaction, target: str):
-    global online_players#, player_sessions, total_times
-    global player_data
+    global pz_rcon_agent #, player_sessions, total_times
+    global player_data_agent
 
     if target.lower() == "all":
         player_times = []
-        for player in player_data:
-            player_times.append((player_data[player]['username'], player_data[player]['totalPlayTime']))
+        for player in player_data_agent.get_player_data():
+            player_data = player_data_agent.get_player_data()[player]
+            if player in pz_rcon_agent.get_online_players():
+                player_times.append((player, player_data['totalPlayTime']+(time.time()-player_data['lastPoll'])))
+            else:
+                player_times.append((player, player_data['totalPlayTime']))
         player_times = sorted(player_times, key=lambda tup: tup[1], reverse=True)
         lines = []
         for p, sec in player_times[:10]: # Top 10 (arrays/lists start at 0 and this syntax goes up to, but does not include the last index)
             h, m, s = int(sec//3600), int((sec%3600)//60), int((sec%3600)%60)
-            status = "🟢" if p in online_players else "🔴"
+            status = "🟢" if p in pz_rcon_agent.get_online_players() else "🔴"
             lines.append(f"{status} - {p.capitalize()}: {h}h {m}m {s}s")
         await interaction.response.send_message("```🕒 - Top 10 Players by Total Playtime:\n" + "\n".join((lines)) + "```")
-    elif target.lower() in player_data: # A Singlar Player
-        h, m, s = int(player_data[target.lower()]['totalPlayTime']//3600), int((player_data[target.lower()]['totalPlayTime']%3600)//60), int((player_data[target.lower()]['totalPlayTime']%3600)%60)
-        status = "🟢" if target.lower() in online_players else "🔴"
+    elif target.lower() in player_data_agent.get_player_data(): # A Singlar Player
+        player_data = player_data_agent.get_player_data()[target.lower()]
+        h, m, s = 0, 0, 0
+        if target.lower() in pz_rcon_agent.get_online_players():
+            player_time = player_data['totalPlayTime']+(time.time()-player_data['lastPoll'])
+            h, m, s = int(player_time//3600), int((player_time%3600)//60), int((player_time%3600)%60)
+        else:
+            h, m, s = int(player_data['totalPlayTime']//3600), int((player_data['totalPlayTime']%3600)//60), int((player_data['totalPlayTime']%3600)%60)
+        status = "🟢" if target.lower() in pz_rcon_agent.get_online_players() else "🔴"
         await interaction.response.send_message(f"```{status} - {target.capitalize()} has played for {h}h {m}m {s}s in total.```")
     else:
-        await interaction.response.send_message(f'```Could not find a player named {target}.')
+        await interaction.response.send_message(f'```Could not find a player named {target}.```')
             
     # now = time.time()
     # if target.lower() == "all":
@@ -731,32 +822,61 @@ async def time_slash(interaction: discord.Interaction, target: str):
 @tree.command(name="survived", description="Shows the total time a player's current character has survived for in in-game hours.")
 @app_commands.describe(target="Player name or 'all'")
 async def survived_slash(interaction: discord.Interaction, target: str):
-    global online_players
-    global player_data
+    global pz_rcon_agent
+    global player_data_agent
     
     if target.lower() == "all":
         player_times = []
-        for player in player_data:
-            player_times.append((player_data[player]['username'], player_data[player]['hoursSurvived']))
-        player_times = sorted(player_times, key=lambda tup: tup[1], reverse=True)
+        for player in player_data_agent.get_player_data():
+            player_data = player_data_agent.get_player_data()[player]
+            player_times.append((player_data['username'], player_data['hours_survived']%24, player_data['hours_survived']//24, player_data['hours_survived']))
+        player_times = sorted(player_times, key=lambda tup: tup[3], reverse=True)
         lines = []
-        for p, hours in player_times[:10]: # Top 10 (arrays/lists start at 0 and this syntax goes up to, but does not include the last index)
-            status = "🟢" if p in online_players else "🔴"
-            lines.append(f"{status} - {p.capitalize()}: {hours} hours")
+        for p, hours, days, _ in player_times[:10]: # Top 10 (arrays/lists start at 0 and this syntax goes up to, but does not include the last index)
+            status = "🟢" if p in pz_rcon_agent.get_online_players() else "🔴"
+            lines.append(f"{status} - {p.capitalize()}: {int(days)} days {int(hours)} hours")
         await interaction.response.send_message("```🕒 - Top 10 Current Character by In-Game Survival Hours:\n" + "\n".join((lines)) + "```")
-    elif target.lower() in player_data: # A Singlar Player
-        hours = int(player_data[target.lower()]['hoursSurvived']//3600)
-        status = "🟢" if target.lower() in online_players else "🔴"
-        await interaction.response.send_message(f"```{status} - {target.capitalize()} has survived for {hours} in-game hours.```")
+    elif target.lower() in player_data_agent.get_player_data(): # A Singlar Player
+        player_data = player_data_agent.get_player_data()[target.lower()]
+        days = int(player_data['hours_survived']//24)
+        hours = int(player_data['hours_survived']%24)
+        status = "🟢" if target.lower() in pz_rcon_agent.get_online_players() else "🔴"
+        await interaction.response.send_message(f"```{status} - {target.capitalize()} has survived for {days} days and {hours} hours in-game.```")
     else:
-        await interaction.response.send_message(f'```Could not find a player named {target}.')
+        await interaction.response.send_message(f'```Could not find a player named {target}.```')
 # end survived_slash
+
+# @tree.command(name="zombies", description="Shows a player's total zombie kills.")
+# @app_commands.describe(target="Player name or 'all'")
+# async def zombies_slash(interaction: discord.Interaction, target: str):
+#     global pz_rcon_agent
+#     global player_data_agent
+    
+#     if target.lower() == "all":
+#         player_times = []
+#         for player in player_data_agent.get_player_data():
+#             player_data = player_data_agent.get_player_data()[player]
+#             player_times.append((player_data['username'], player_data['zombie_kills']))
+#         player_times = sorted(player_times, key=lambda tup: tup[1], reverse=True)
+#         lines = []
+#         for p, kills in player_times[:10]: # Top 10 (arrays/lists start at 0 and this syntax goes up to, but does not include the last index)
+#             status = "🟢" if p in pz_rcon_agent.get_online_players() else "🔴"
+#             lines.append(f"{status} - {p.capitalize()}: {kills} zombies")
+#         await interaction.response.send_message("```🕒 - Top 10 Current Character by Zombie Kills:\n" + "\n".join((lines)) + "```")
+#     elif target.lower() in player_data_agent.get_player_data(): # A Singlar Player
+#         player_data = player_data_agent.get_player_data()[target.lower()]
+#         zombies = player_data['zombie_kills']
+#         status = "🟢" if target.lower() in pz_rcon_agent.get_online_players() else "🔴"
+#         await interaction.response.send_message(f"```{status} - {target.capitalize()} has killed {zombies} zombies.```")
+#     else:
+#         await interaction.response.send_message(f'```Could not find a player named {target}.```')
+# # end survived_slash
 
 @tree.command(name="skill", description="Show a player's skills or leaderboard for a skill")
 @app_commands.describe(target="Skill name, player name, 'total' or 'all'.")
 async def skill_slash(interaction: discord.Interaction, target: str):
-    global online_players, player_skills
-    global player_data
+    global pz_rcon_agent #online_players, player_skills
+    global player_data_agent
     target_lower = target.lower()
 
     # ----------------------
@@ -774,8 +894,9 @@ async def skill_slash(interaction: discord.Interaction, target: str):
         #     if pk not in combined:
         #         combined[pk] = 0
 
-        for player in player_data:
-            combined[player] = sum(player_data[player]['skills'].values())
+        for player in player_data_agent.get_player_data():
+            player_data = player_data_agent.get_player_data()[player]
+            combined[player] = sum(player_data['perks'].values())
 
         top = sorted(combined.items(), key=lambda x: x[1], reverse=True)[:10]
 
@@ -786,7 +907,7 @@ async def skill_slash(interaction: discord.Interaction, target: str):
         lines = []
         for p, total in top:
             display_name_cap = p.capitalize()
-            status = "🟢" if p in [pl.lower() for pl in online_players] else "🔴"
+            status = "🟢" if p in [pl.lower() for pl in pz_rcon_agent.get_online_players()] else "🔴"
             lines.append(f"{status} - {display_name_cap}: {total}")
 
         await interaction.response.send_message(
@@ -804,10 +925,11 @@ async def skill_slash(interaction: discord.Interaction, target: str):
         #     lvl = skills.get(skill_key, 0)
         #     top_list.append((player_key, lvl))
 
-        for player in player_data:
-            top_list.append((player, player_data[player]['skills'][skill_key]))
+        for player in player_data_agent.get_player_data():
+            player_data = player_data_agent.get_player_data()[player]
+            top_list.append((player, player_data_agent.get_player_data()[player]['perks'][skill_key]))
 
-        for player in online_players:
+        for player in pz_rcon_agent.get_online_players():
             pk = player.lower()
             if pk not in [p for p,_ in top_list]:
                 top_list.append((pk, 0))
@@ -817,7 +939,7 @@ async def skill_slash(interaction: discord.Interaction, target: str):
         emoji = SKILL_EMOJIS.get(skill_key, '')
         lines = []
         for p, lvl in top:
-            status = "🟢" if p in [pl.lower() for pl in online_players] else "🔴"
+            status = "🟢" if p in [pl.lower() for pl in pz_rcon_agent.get_online_players()] else "🔴"
             lines.append(f"{status} - {p}: {lvl}")
 
         await interaction.response.send_message(
@@ -827,11 +949,13 @@ async def skill_slash(interaction: discord.Interaction, target: str):
 
     # OTHERWISE TREAT AS PLAYER NAME
     player_key = target_lower
-    if player_key not in player_skills:
-        player_skills[player_key] = DEFAULT_SKILLS.copy()
+    if player_key not in player_data_agent.get_player_data():
+        await interaction.response.send_message(f"```Could not find player with name {player_key}```")
+        return
+        # player_skills[player_key] = DEFAULT_SKILLS.copy()
 
     # skills = player_skills[player_key]
-    skills = player_data[player_key]['skills']
+    skills = player_data_agent.get_player_data()[player_key]['perks']
     display_name = target.capitalize()
     status = "🟢 Online" if player_key in [pl.lower() for pl in online_players] else "🔴 Offline"
 
@@ -912,8 +1036,60 @@ async def skill_slash(interaction: discord.Interaction, target: str):
     # await ctx.send(msg)
 # end skill_slash
 
+# @tree.command(name='sync', description='Owner only')
+# async def sync_slash(interaction: discord.Integration):
+#     global tree
+#     moderators = [
+#         member.id
+#         for member in interaction.guild.members
+#         if member.guild_permissions.administrator
+#     ]
+#     if interaction.user.id in moderators:
+#         await tree.sync()
+#         LOGGER.info('Command tree synced.')
+#     else:
+#         await interaction.responce.send_message('You must be the owner to use this command!')
+# # end sync_slash
+
+# Code for sync command retrieved from https://about.abstractumbra.dev/discord.py/2023/01/29/sync-command-example.html
+@bot.command()
+@commands.guild_only()
+@commands.is_owner()
+async def sync(ctx: commands.Context, guilds: commands.Greedy[discord.Object], spec: Optional[Literal["~", "*", "^"]] = None) -> None:
+    LOGGER.info(f'Attempting to sync commands... Please wait.')
+    if not guilds:
+        if spec == "~":
+            synced = await ctx.bot.tree.sync(guild=ctx.guild)
+        elif spec == "*":
+            ctx.bot.tree.copy_global_to(guild=ctx.guild)
+            synced = await ctx.bot.tree.sync(guild=ctx.guild)
+        elif spec == "^":
+            ctx.bot.tree.clear_commands(guild=ctx.guild)
+            await ctx.bot.tree.sync(guild=ctx.guild)
+            synced = []
+        else:
+            synced = await ctx.bot.tree.sync()
+
+        await ctx.send(
+            f"Synced {len(synced)} commands {'globally' if spec is None else 'to the current guild.'}"
+        )
+        LOGGER.info(f"Synced {len(synced)} commands {'globally' if spec is None else 'to the current guild.'}")
+        return
+
+    ret = 0
+    for guild in guilds:
+        try:
+            await ctx.bot.tree.sync(guild=guild)
+        except discord.HTTPException:
+            pass
+        else:
+            ret += 1
+
+    await ctx.send(f"Synced the tree to {ret}/{len(guilds)}.")
+    LOGGER.info(f"Synced the tree to {ret}/{len(guilds)}.")
+
 @tree.command(name="commands", description="Show all available commands")
-async def commands_slash(interaction: discord.Interaction):
+async def commands_slash(interaction: discord.Interaction):    
     await interaction.response.send_message(
         "📜 **Available Commands:**\n"
         "• `/online` — Show currently online players.\n"
@@ -921,6 +1097,8 @@ async def commands_slash(interaction: discord.Interaction):
         "• `/time all` — Show top 10 players by playtime.\n"
         "• `/survived [player]` — Show total hours survived for a player.\n"
         "• `/survived all` — Show top 10 players by survival time.\n"
+        "• `/zombies [player]` — Show total zombie kills for a player.\n"
+        "• `/zombies all` — Show top 10 players by zombie kills.\n"
         "• `/skill [skill]` — Show top 10 players by a skill.\n"
         "• `/skill [player]` — Show a specific players skills.\n"
         "• `/skill total` — Show top 10 players by total skill levels.\n"

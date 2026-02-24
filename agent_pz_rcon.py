@@ -27,15 +27,22 @@ class Agent_PZ_RCON():
                 if not self.__server_status:
                     self.__server_status = True
                 response = rcon.command("players").splitlines()# or rcon.command("who").splitlines()
+                if len(response) > 0: # If len(response) is 0 then there was an issue getting a response from the PZ server and we therefore do not want to update online_players
+                    new_list = set()
+                    for player in response[1:]:
+                        new_list.add(player[1:].lower())
+                    if new_list != self.__online_players:
+                        self.__online_players = new_list
         except Exception:
             if self.__server_status:
-                self.__server_status = True
+                self.__server_status = False
+            self.__online_players = set()
             error = traceback.format_exc()
             lines = error.split('\n')
-            LOGGER.info('Can\'t reach Project Zomboid Server: '+str(lines[-2]))
+            print(error)
+            LOGGER.error('Can\'t reach Project Zomboid Server: '+str(lines[-1]))
+            LOGGER.error('Error in agent_pz_rcon.py function poll_pz_server')
             return
-        for player in response[1:]:
-            self.__online_players.add(player[1:])
     # end poll_pz_server
 
     def get_online_players(self) -> set:

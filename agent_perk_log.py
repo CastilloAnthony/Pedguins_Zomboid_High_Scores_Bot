@@ -17,6 +17,7 @@ class Agent_Perk_Log():
         """
         self.__settings = read_connection_settings()
         self.__perk_log = read_json_file('pz_perk_log.json')
+        self.__new_perk_log = {}
         self.__latest_perk_log_filename = ''
         self.poll_perk_log()
     # end __init__
@@ -35,18 +36,22 @@ class Agent_Perk_Log():
             if not Path(self.__settings['LOCAL_PERK_LOG_PATH']).is_dir():
                 Path(self.__settings['LOCAL_PERK_LOG_PATH']).mkdir()
             filesnames = sftp.listdir(self.__settings['LOG_DIR'])
-            perk_log_file = sorted([f for f in filesnames if f.endswith('_PerkLog.txt')])[-1]
+            perk_log_file = sorted([f for f in filesnames if f.endswith('_PerkLog.txt')])
             if perk_log_file:
                 for filename in perk_log_file:
                     remote_file_path = os.path.join(self.__settings['LOG_DIR'], filename)
                     self.__latest_perk_log_filename = os.path.join(self.__settings['LOCAL_PERK_LOG_PATH'], 'PerkLog.txt')
                     sftp.get(remotepath=remote_file_path, localpath=self.__latest_perk_log_filename)
-            sftp.close()
         except:
             error = traceback.format_exc()
             lines = error.split('\n')
-            LOGGER.info('Can\'t reach Bisect Hosting: '+str(lines[-2]))
+            print(error)
+            LOGGER.error('Can\'t reach Bisect Hosting: '+str(lines[-1]))
+            LOGGER.error('Error in agent_perk_log.py function poll_perk_log')
             return False
+        finally:
+            if sftp:
+                sftp.close()
         self.update_perk_log()
         return True
     # end poll_perk_log
@@ -59,7 +64,8 @@ class Agent_Perk_Log():
                 if line != '':
                     parsed = log_parser(line)
                     if parsed['timestamp'] not in self.__perk_log:
-                        self.__perk_log[parsed['timestamp']] = parsed
+                        if parsed['timestamp'] not in self.__new_perk_log:
+                            self.__new_perk_log[parsed['timestamp']] = parsed
         save_json_file(json_dict=self.__perk_log, file_path='pz_perk_log.json')
     # end update_perk_log
 
@@ -72,13 +78,38 @@ class Agent_Perk_Log():
         pass
     # end truncate_log
 
-    def get_log(self) -> dict:
+    def update_new_perk_log(self, timestamp:str) -> bool:
+        """_summary_
+
+        Args:
+            timestamp (str): _description_
+        """
+        if timestamp in self.__new_perk_log:
+            if timestamp not in self.__perk_log:
+                self.__perk_log[timestamp] = self.__new_perk_log.pop(timestamp)
+                return True
+            else:
+                return False
+        else:
+            return False
+    # end update_new_perk_log
+
+    def get_full_log(self) -> dict:
         """Returns a dictionary of imported player data
 
         Returns:
             dict: player data
         """
         return self.__perk_log
+    # end get_log
+
+    def get_new_log(self) -> dict:
+        """Returns a dictionary of imported player data
+
+        Returns:
+            dict: player data
+        """
+        return self.__new_perk_log
     # end get_log
 # end perk_log_agent
 
