@@ -185,23 +185,23 @@ class Agent_Player_Data():
             return False
     # end add_player_time_played
 
-    # def update_player_last_login(self, username:str, lastLogin:float) -> bool:
-    #     if username in self.__player_data:
-    #         self.__player_data[username]['lastLogin'] = lastLogin
-    #         save_json_file(json_dict=self.__player_data, file_path='./player_data.json')
-    #         return True
-    #     else:
-    #         return False
-    # # end add_player_login_time
-
-    def update_player_last_poll(self, username:str, lastPoll:float) -> bool:
+    def update_player_last_login(self, username:str, lastLogin:float) -> bool:
         if username in self.__player_data:
-            self.__player_data[username]['lastPoll'] = lastPoll
+            self.__player_data[username]['lastLogin'] = lastLogin
             save_json_file(json_dict=self.__player_data, file_path='./player_data.json')
             return True
         else:
             return False
     # end add_player_login_time
+
+    # def update_player_last_poll(self, username:str, lastPoll:float) -> bool:
+    #     if username in self.__player_data:
+    #         self.__player_data[username]['lastPoll'] = lastPoll
+    #         save_json_file(json_dict=self.__player_data, file_path='./player_data.json')
+    #         return True
+    #     else:
+    #         return False
+    # # end add_player_login_time
 
     def get_player_data(self, username:str = None) -> dict:
         """Returns a dictionary of either all player data or just one player's data

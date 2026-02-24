@@ -870,7 +870,7 @@ async def survived_slash(interaction: discord.Interaction, target: str):
 #         await interaction.response.send_message(f"```{status} - {target.capitalize()} has killed {zombies} zombies.```")
 #     else:
 #         await interaction.response.send_message(f'```Could not find a player named {target}.```')
-# # end survived_slash
+# # end zombies_slash
 
 @tree.command(name="skill", description="Show a player's skills or leaderboard for a skill")
 @app_commands.describe(target="Skill name, player name, 'total' or 'all'.")
