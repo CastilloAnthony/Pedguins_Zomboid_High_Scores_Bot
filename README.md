@@ -11,6 +11,7 @@ A personalized discord bot made using the discord 2.6.4 library alongside the mc
 5. You should now be able to interact with the bot in discord channels. Try the '/command'
 
 #### Todo:
+- Reimplement level up messages
 - Implement a truncate pz_perk_log.json feature
 - Add commands to show player zombie kills and/or survivor kills
 - Remove anomalous player data (ongoing as they appear)

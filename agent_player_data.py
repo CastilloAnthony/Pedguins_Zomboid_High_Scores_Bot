@@ -135,8 +135,8 @@ class Agent_Player_Data():
                 if 'zombie_kills' not in player_data:
                     player_data['zombie_kills'] = 0
 
-                if 'survivor_lills' not in player_data:
-                    player_data['survivor_lills'] = 0
+                if 'survivor_kills' not in player_data:
+                    player_data['survivor_kills'] = 0
 
                 if 'is_alive' not in player_data:
                     player_data['is_alive'] = True

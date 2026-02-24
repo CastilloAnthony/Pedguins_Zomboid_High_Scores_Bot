@@ -846,9 +846,35 @@ async def survived_slash(interaction: discord.Interaction, target: str):
         await interaction.response.send_message(f'```Could not find a player named {target}.```')
 # end survived_slash
 
-# @tree.command(name="zombies", description="Shows a player's total zombie kills.")
+@tree.command(name="zombies", description="Shows a player's total zombie kills.")
+@app_commands.describe(target="Player name or 'all'")
+async def zombies_slash(interaction: discord.Interaction, target: str):
+    global pz_rcon_agent
+    global player_data_agent
+    
+    if target.lower() == "all":
+        player_times = []
+        for player in player_data_agent.get_player_data():
+            player_data = player_data_agent.get_player_data()[player]
+            player_times.append((player_data['username'], player_data['zombie_kills']))
+        player_times = sorted(player_times, key=lambda tup: tup[1], reverse=True)
+        lines = []
+        for p, kills in player_times[:10]: # Top 10 (arrays/lists start at 0 and this syntax goes up to, but does not include the last index)
+            status = "🟢" if p in pz_rcon_agent.get_online_players() else "🔴"
+            lines.append(f"{status} - {p.capitalize()}: {kills} zombies")
+        await interaction.response.send_message("```🕒 - Top 10 Current Character by Zombie Kills:\n" + "\n".join((lines)) + "```")
+    elif target.lower() in player_data_agent.get_player_data(): # A Singlar Player
+        player_data = player_data_agent.get_player_data()[target.lower()]
+        zombies = player_data['zombie_kills']
+        status = "🟢" if target.lower() in pz_rcon_agent.get_online_players() else "🔴"
+        await interaction.response.send_message(f"```{status} - {target.capitalize()} has killed {zombies} zombies.```")
+    else:
+        await interaction.response.send_message(f'```Could not find a player named {target}.```')
+# end zombies_slash
+
+# @tree.command(name="survivors", description="Shows a player's total survivor kills.")
 # @app_commands.describe(target="Player name or 'all'")
-# async def zombies_slash(interaction: discord.Interaction, target: str):
+# async def survivors_slash(interaction: discord.Interaction, target: str):
 #     global pz_rcon_agent
 #     global player_data_agent
     
@@ -856,18 +882,18 @@ async def survived_slash(interaction: discord.Interaction, target: str):
 #         player_times = []
 #         for player in player_data_agent.get_player_data():
 #             player_data = player_data_agent.get_player_data()[player]
-#             player_times.append((player_data['username'], player_data['zombie_kills']))
+#             player_times.append((player_data['username'], player_data['survivor_kills']))
 #         player_times = sorted(player_times, key=lambda tup: tup[1], reverse=True)
 #         lines = []
 #         for p, kills in player_times[:10]: # Top 10 (arrays/lists start at 0 and this syntax goes up to, but does not include the last index)
 #             status = "🟢" if p in pz_rcon_agent.get_online_players() else "🔴"
-#             lines.append(f"{status} - {p.capitalize()}: {kills} zombies")
-#         await interaction.response.send_message("```🕒 - Top 10 Current Character by Zombie Kills:\n" + "\n".join((lines)) + "```")
+#             lines.append(f"{status} - {p.capitalize()}: {kills} survivors")
+#         await interaction.response.send_message("```🕒 - Top 10 Current Character by Survivors Kills:\n" + "\n".join((lines)) + "```")
 #     elif target.lower() in player_data_agent.get_player_data(): # A Singlar Player
 #         player_data = player_data_agent.get_player_data()[target.lower()]
-#         zombies = player_data['zombie_kills']
+#         survivors = player_data['survivor_kills']
 #         status = "🟢" if target.lower() in pz_rcon_agent.get_online_players() else "🔴"
-#         await interaction.response.send_message(f"```{status} - {target.capitalize()} has killed {zombies} zombies.```")
+#         await interaction.response.send_message(f"```{status} - {target.capitalize()} has killed {survivors} survivors.```")
 #     else:
 #         await interaction.response.send_message(f'```Could not find a player named {target}.```')
 # # end zombies_slash
