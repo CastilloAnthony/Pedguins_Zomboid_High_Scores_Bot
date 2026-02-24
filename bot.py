@@ -17,7 +17,7 @@ from typing import Literal, Optional
 import traceback
 import logging
 LOGGER: logging.Logger = logging.getLogger("bot")
-discord.utils.setup_logging(level=logging.INFO) # Enables additional logging info from discord, just nice to see sometimes and not to overwhelming, ALSO DUPLICATES DISCORD LOGGING MSGS :(
+# discord.utils.setup_logging(level=logging.INFO) # Enables additional logging info from discord, just nice to see sometimes and not to overwhelming, ALSO DUPLICATES DISCORD LOGGING MSGS :(
 logging.getLogger('paramiko').setLevel(logging.WARNING) # Surpresses logging info messages about connecting and closing SFTP
 from read_discord_settings import read_discord_settings
 from read_connection_settings import read_connection_settings
@@ -1111,5 +1111,5 @@ async def commands_slash(interaction: discord.Interaction):
 # START BOT
 # --------------------
 if __name__ == '__main__': # This prevents the bot being ran multiple times in different threads, just a safety precaution
-    bot.run(settings_discord[target_bot]['botToken'])
+    bot.run(settings_discord[target_bot]['botToken'], root_logger=True)
 
