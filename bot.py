@@ -27,8 +27,8 @@ polling_rate = 1/60*60 # Seconds (Note: 1/60 * 60 is 1 second)
 
 import player_data_functions
 player_data_functions.merge_duplicate_players()
-pz_perk_log = player_data_functions.read_data_file('./pz_perk_log.json')
-player_data = player_data_functions.read_data_file()
+pz_perk_log = player_data_functions.read_json_file('./pz_perk_log.json')
+player_data = player_data_functions.read_json_file('./player_data.json')
 
 # --------------------
 # DISCORD INTENTS
@@ -288,7 +288,7 @@ else:
 
 # atexit.register(save_times)
 # atexit.register(save_seen_skills)
-atexit.register(player_data_functions.save_data_file, player_data)
+atexit.register(player_data_functions.save_json_file, player_data, './player_data.json')
 # atexit.register(player_data_functions.save_data_file, pz_perk_log, './pz_perk_log.json')
 
 
@@ -390,11 +390,11 @@ async def poll_players():
             player_data[player]['totalPlayTime'] += time.time() - player_data[player]['lastPoll']
             player_data[player]['lastPoll'] = time.time()
             # player_data[player] = player_data_functions.create_default_player_data(username=player)
-            player_data_functions.save_data_file(player_data)
+            player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
         # if 'totalPlayTime' not in player_data[player]: # Temporary until we find the real problem
         #     player_data[player]['totalPlayTime'] = 0
         
-    player_data_functions.save_data_file(player_data)
+    player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
 
     online_players.clear()
     online_players.update(current_players)
@@ -419,18 +419,18 @@ async def poll_players():
                     if parsed['timestamp'] not in pz_perk_log: # This line hasn't been added to the bot yet.
                         pz_perk_log[parsed['timestamp']] = parsed
                         if parsed['type'] == 'unhandled':
-                            player_data_functions.save_data_file(pz_perk_log, './pz_perk_log.json')
+                            player_data_functions.save_json_file(json_dict=pz_perk_log, file_path='./pz_perk_log.json')
                             continue
                         if parsed['username'] not in player_data: # Detected a player not already player_data, creating a default
                             player_data[parsed['username']] = player_data_functions.create_default_player_data(username=parsed['username'], user_id=parsed['user_id'])
-                            player_data_functions.save_data_file(player_data)
+                            player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
                         if player_data[parsed['username']]['user_id'] == 'None' or parsed['user_id'] != player_data[parsed['username']]['user_id']:
                             player_data[parsed['username']]['user_id'] = parsed['user_id']
-                            player_data_functions.save_data_file(player_data)
+                            player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
                         if parsed['type'] == 'skills':
                             player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
                             player_data[parsed['username']]['skills'] = parsed['skills']
-                            player_data_functions.save_data_file(player_data)
+                            player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
                         elif parsed['type'] == 'login':
                             player_data[parsed['username']]['characterLastLogin'] = time.time()
                             player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
@@ -438,7 +438,7 @@ async def poll_players():
                             player_data[parsed['username']]['hoursSurvived'] = parsed['hoursSurvived']
                             player_data[parsed['username']]['characterLastLogin'] = time.time()
                             player_data[parsed['username']]['skills'] = DEFAULT_SKILLS.copy()
-                            player_data_functions.save_data_file(player_data)
+                            player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
                         elif parsed['type'] == 'died':
                             # In-game time
                             # print(parsed['hoursSurvived'])
@@ -476,14 +476,14 @@ async def poll_players():
                             # player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
                             if int(player_data[parsed['username']]['skills'][parsed['skill']]) < int(parsed['level']): # Level Up
                                 player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
-                                player_data_functions.save_data_file(player_data)
+                                player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
                                 msg = f"```🎉 {parsed['username']} has leveled up their {parsed['skill']} to {parsed['level']}! {SKILL_EMOJIS.get(parsed['skill'], "")}```"
                                 channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
                                 if channel:
                                     await channel.send(msg)
                             else:
                                 player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
-                                player_data_functions.save_data_file(player_data)
+                                player_data_functions.save_json_file(json_dict=player_data, file_path='./player_data.json')
                             # elif int(player_data[parsed['username']]['skills'][parsed['skill']]) > int(parsed['level']): # Level Down
                             #     player_data[parsed['username']]['skills'][parsed['skill']] = parsed['level']
                             #     player_data_functions.save_data_file(player_data)
@@ -491,7 +491,7 @@ async def poll_players():
                             #     channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
                             #     if channel:
                             #         await channel.send(msg)
-                        player_data_functions.save_data_file(pz_perk_log, './pz_perk_log.json')
+                        player_data_functions.save_json_file(json_dict=pz_perk_log, file_path='./pz_perk_log.json')
                     else:
                         continue
         sftp.close()

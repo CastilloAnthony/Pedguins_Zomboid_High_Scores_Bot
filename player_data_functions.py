@@ -63,7 +63,7 @@ def create_default_player_data(username:str, user_id:str = 'None') -> dict:
     }
 # end create_default_player_data
 
-def read_data_file(file_path:str = './player_data.json') -> dict:
+def read_json_file(file_path:str) -> dict:
     if not Path(file_path).is_file():
         with open(file_path, 'w') as file:
             json.dump({
@@ -74,14 +74,14 @@ def read_data_file(file_path:str = './player_data.json') -> dict:
         with open(file_path, 'r') as file:
             LOGGER.info(f'Loaded {file_path} file.')
             return json.load(file)
-# end read_connection_settings
+# end read_json_file
 
-def save_data_file(player_data:dict, file_path:str = './player_data.json') -> None:
+def save_json_file(json_dict:dict, file_path:str) -> None:
     with open(file_path, 'w') as file:
-        json.dump(player_data, fp=file, indent=4)
+        json.dump(json_dict, fp=file, indent=4)
         # LOGGER.info(f'Updated {file_path}')
         return
-# end save_player_data
+# end save_json_file
 
 def log_parser(logLine:str) -> dict: # Returns a dictionary of the log message broken down into its respective parts. Three different types can be had. 
     if '(perform)' in logLine:
@@ -223,7 +223,7 @@ def parse_hours_survived(text:str) -> int:
         else:
             count -= 1
     return int(text[len(text)+count:])
-# end parseHourseSurvived
+# end parse_hours_survived
 
 def parse_skills(skills:str) -> dict:
     newList = skills.split(', ')
@@ -235,7 +235,7 @@ def parse_skills(skills:str) -> dict:
                 newDict[i[:count]] = int(i[count+1:])
             count += 1
     return newDict
-# end parseSkills
+# end parse_skills
 
 def truncate_logs() -> None:
     pass
@@ -269,7 +269,7 @@ def check_old_player_data() -> dict:
 
 def merge_duplicate_players() -> None: # Merge entries of players whose names appear twice in different cases i.e. "Pedguin" and "pedguin"
     LOGGER.info(f'Searching for and merging duplicates in player_data.json')
-    old_player_data = read_data_file()
+    old_player_data = read_json_file('./player_data.json')
     new_player_data = {}
     unhandled_player_data = {}
     new_player = ''
@@ -310,9 +310,9 @@ def merge_duplicate_players() -> None: # Merge entries of players whose names ap
         # Storing Other Anomalies
         else:
             LOGGER.warning(f'Unhandled player data! Sending to unhandled_player_data.json')
-            unhandled_player_data = read_data_file(file_path='./unhandled_player_data.json')
+            unhandled_player_data = read_json_file(file_path='./unhandled_player_data.json')
             unhandled_player_data[player] = old_player_data[player]
-            save_data_file(player_data=unhandled_player_data, file_path='unhandled_player_data.json')
-    save_data_file(player_data=new_player_data)
-    LOGGER.info(f'Saved and unloaded player_data')
+            save_json_file(json_dict=unhandled_player_data, file_path='unhandled_player_data.json')
+    save_json_file(json_dict=new_player_data, file_path='./player_data.json')
+    LOGGER.info(f'Saved and unloaded player_data.json')
 # end merge_duplicate_players

@@ -5,6 +5,8 @@ settings_*
 *.old
 db_agent.py
 *.db
+PerkLogs/
+PedguinsHighScoresCollector/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
