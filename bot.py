@@ -133,56 +133,83 @@ SKILL_ALIASES = {
     "tailoring": "Tailoring",
 
     # Electrical
-    "electric": "Electricity",
-    "electrical": "Electricity",
+    # "electric": "Electricity",
+    # "electrical": "Electricity",
+    "electric": "Electrical",
+    "electrical": "Electrical",
 
     # Welding
-    "weld": "MetalWelding",
-    "welding": "MetalWelding",
+    # "weld": "MetalWelding",
+    # "welding": "MetalWelding",
+    "weld": "Welding",
+    "welding": "Welding",
 
     # Long Blade
-    "longblade": "LongBlade",
-    "long blade": "LongBlade",
+    # "longblade": "LongBlade",
+    # "long blade": "LongBlade",
+    "longblade": "Long Blade",
+    "long blade": "Long Blade",
 
     # Long Blunt
-    "longblunt": "Blunt",
-    "long blunt": "Blunt",
+    # "longblunt": "Blunt",
+    # "long blunt": "Blunt",
+    "longblunt": "Long Blunt",
+    "long blunt": "Long Blunt",
 
     # Small Blade
-    "smallblade": "SmallBlade",
-    "small blade": "SmallBlade",
+    # "smallblade": "SmallBlade",
+    # "small blade": "SmallBlade",
+    "smallblade": "Small Blade",
+    "small blade": "Small Blade",
 
     # Small Blunt
-    "smallblunt": "SmallBlunt",
-    "small blunt": "SmallBlunt",
+    # "smallblunt": "SmallBlunt",
+    # "small blunt": "SmallBlunt",
+    "smallblunt": "Small Blunt",
+    "small blunt": "Small Blunt",
 
     # Foraging
-    "forage": "PlantScavenging",
-    "foraging": "PlantScavenging",
-    "plantscavenging": "PlantScavenging",
+    # "forage": "PlantScavenging",
+    # "foraging": "PlantScavenging",
+    # "plantscavenging": "PlantScavenging",
+    "forage": "Foraging",
+    "foraging": "Foraging",
+    "plantscavenging": "Foraging",
 
     # First Aid
-    "firstaid": "Doctor",
-    "first aid": "Doctor",
-    "doctor": "Doctor",
+    # "firstaid": "Doctor",
+    # "first aid": "Doctor",
+    # "doctor": "Doctor",
+    "firstaid": "First Aid",
+    "first aid": "First Aid",
+    "doctor": "First Aid",
 
     # Knapping
-    "knapping": "FlintKnapping",
-    "flintknapping": "FlintKnapping",
+    # "knapping": "FlintKnapping",
+    # "flintknapping": "FlintKnapping",
+    "knapping": "Knapping",
+    "flintknapping": "Knapping",
 
     # Axe
     "axe": "Axe",
 
     # Woodworking / Carpentry
-    "wood": "Woodwork",
-    "woodworking": "Woodwork",
-    "carpentry": "Woodwork",
-    "woodwork": "Woodwork",
+    # "wood": "Woodwork",
+    # "woodworking": "Woodwork",
+    # "carpentry": "Woodwork",
+    # "woodwork": "Woodwork",
+    "wood": "Carpentry",
+    "woodworking": "Carpentry",
+    "carpentry": "Carpentry",
+    "woodwork": "Carpentry",
 
     # Husbandry / Animal Care
-    "husbandry": "Husbandry",
-    "animalcare": "Husbandry",
-    "animal care": "Husbandry",
+    # "husbandry": "Husbandry",
+    # "animalcare": "Husbandry",
+    # "animal care": "Husbandry",
+    "husbandry": "Animal Care",
+    "animalcare": "Animal Care",
+    "animal care": "Animal Care",
 }
 
 SKILL_DISPLAY = {

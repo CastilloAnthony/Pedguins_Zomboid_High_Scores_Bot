@@ -26,7 +26,7 @@ class Agent_PZ_RCON():
             with MCRcon(self.__settings['RCON_HOST'], self.__settings['RCON_PASSWORD'], port=self.__settings['RCON_PORT']) as rcon:
                 if not self.__server_status:
                     self.__server_status = True
-                response = rcon.command("players").splitlines()# or rcon.command("who").splitlines()
+                response = rcon.command("players").splitlines() or rcon.command("who").splitlines() # Linux servers use the who command
                 if len(response) > 0: # If len(response) is 0 then there was an issue getting a response from the PZ server and we therefore do not want to update online_players
                     new_list = set()
                     for player in response[1:]:

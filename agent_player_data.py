@@ -40,7 +40,8 @@ class Agent_Player_Data():
             player_data_files = [f for f in filesnames if f.endswith("_data.json")]
             if player_data_files:
                 for filename in player_data_files:
-                    remote_file_path = os.path.join(self.__settings['SFTP_PLAYER_DATA_PATH'], filename)
+                    remote_file_path = self.__settings['SFTP_PLAYER_DATA_PATH']+"/"+filename # Linux
+                    # remote_file_path =os.path.join(self.__settings['SFTP_PLAYER_DATA_PATH'], filename) # Windows
                     local_file_path = os.path.join(self.__settings['LOCAL_PLAYER_DATA_PATH'], filename)
                     sftp.get(remotepath=remote_file_path, localpath=local_file_path)
         except:
