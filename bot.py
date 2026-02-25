@@ -30,7 +30,7 @@ pz_perk_log = read_json_file('./pz_perk_log.json') # Memory bank
 
 # Data Agents
 player_data_agent = Agent_Player_Data() #player_data_functions.read_json_file('./player_data.json')
-pz_perk_log_agent = Agent_Perk_Log()
+# pz_perk_log_agent = Agent_Perk_Log()
 pz_rcon_agent = Agent_PZ_RCON()
 
 # --------------------
@@ -235,12 +235,13 @@ async def announce_server_status(online: bool = False):
 # --------------------
 async def poll_players():
     global online_players
-    global pz_perk_log_agent, player_data_agent, pz_rcon_agent, settings_discord, target_bot
+    global player_data_agent, pz_rcon_agent, settings_discord, target_bot #pz_perk_log_agent
     channel = bot.get_channel(settings_discord[target_bot]['ANNOUNCE_CHANNEL_ID'])
+    death_channel = bot.get_channel(settings_discord[target_bot]['ANNOUNCE_CHANNEL_ID'])   
     
     await pz_rcon_agent.poll_pz_server()
     await player_data_agent.poll_player_data()
-    await pz_perk_log_agent.poll_perk_log()
+    # await pz_perk_log_agent.poll_perk_log()
     current_players = pz_rcon_agent.get_online_players()
 
     # --- Handle joins ---
@@ -271,59 +272,83 @@ async def poll_players():
         channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
         if channel:
             await channel.send(msg)
+    deaths = player_data_agent.get_deaths()
+    for player_name, hours_survived in deaths:
+        # In-game time
+        in_game_days = int(hours_survived // (24))
+        in_game_hours = int(hours_survived)
+        in_game_minutes = int(hours_survived * 60)
+        if hours_survived >= 1:
+            in_game_str = f"{in_game_days} days {in_game_hours} hours {in_game_minutes} minutes" if in_game_days > 0 else f"{in_game_hours} hours {in_game_minutes} minutes"
+        else:
+            in_game_str = "less than 1 hour"
+        # Real-life time # 1 Full In-Game Day is 1 IRL Hour
+        real_days = int(hours_survived // 24*24) # 24 Hours is 576 Zomboid Hours
+        real_hours = int(hours_survived // 24) # 1 Hour is 24 Zomboid Hours
+        real_mins = int(hours_survived // (24/60)) # 1/60 Hours is 0.4 Zomboid Hours
+        if real_mins >= 1:
+            real_str = f"{real_days} days {real_hours} hours {real_mins} minutes" if real_days > 0 else f"{real_hours} hours {real_mins} minutes"
+        else:
+            real_str = "less than a minute"
+        msg = f"""
+        ```💀 {player_name} has died.
+        Survived in-game: {in_game_str}
+        Real-life: {real_str}```
+        """
+        if death_channel:
+            await death_channel.send(msg)
 # end poll_players
 
-async def check_perk_logs():
-    death_channel = bot.get_channel(settings_discord[target_bot]['ANNOUNCE_CHANNEL_ID'])    
-    new_perk_log = pz_perk_log_agent.get_new_log().copy()
-    for entry in new_perk_log:
-        if new_perk_log[entry]['type'] == 'unhandled': # Do not care for these anymore
-            pz_perk_log_agent.update_new_perk_log(new_perk_log[entry]['timestamp'])
-            continue
-        if new_perk_log[entry]['type'] == 'skills': # Do not care for these anymore
-            pz_perk_log_agent.update_new_perk_log(new_perk_log[entry]['timestamp'])
-        elif new_perk_log[entry]['type'] == 'login': # Do not care for these anymore
-            pz_perk_log_agent.update_new_perk_log(new_perk_log[entry]['timestamp'])
-        elif new_perk_log[entry]['type'] == 'creation': # Do not care for these anymore
-            pz_perk_log_agent.update_new_perk_log(new_perk_log[entry]['timestamp'])
-        elif new_perk_log[entry]['type'] == 'died': # IMPORTANT!
-            # In-game time
-            player = player_data_agent.get_player_data()[new_perk_log[entry]['username']]
-            in_game_days = int(player['hours_survived'] // (24))
-            in_game_hours = int(player['hours_survived'])
-            in_game_minutes = int(player['hours_survived'] * 60)
-            if player['hours_survived'] >= 1:
-                in_game_str = f"{in_game_days} days {in_game_hours} hours {in_game_minutes} minutes" if in_game_days > 0 else f"{in_game_hours} hours {in_game_minutes} minutes"
-            else:
-                in_game_str = "less than 1 hour"
-            # Real-life time # 1 Full In-Game Day is 1 IRL Hour
-            in_game_hours = player['hours_survived']
-            real_days = int(in_game_hours // 24*24) # 24 Hours is 576 Zomboid Hours
-            real_hours = int(in_game_hours // 24) # 1 Hour is 24 Zomboid Hours
-            real_mins = int(in_game_hours // (24/60)) # 1/60 Hours is 0.4 Zomboid Hours
-            if real_mins >= 1:
-                real_str = f"{real_days} days {real_hours} hours {real_mins} minutes" if real_days > 0 else f"{real_hours} hours {real_mins} minutes"
-            else:
-                real_str = "less than a minute"
-            msg = f"""
-            ```💀 {new_perk_log[entry]['username']} has died.
-            Survived in-game: {in_game_str}
-            Real-life: {real_str}```
-            """
-            if death_channel:
-                await death_channel.send(msg)
-            pz_perk_log_agent.update_new_perk_log(new_perk_log[entry]['timestamp'])
-        elif new_perk_log[entry]['type'] == 'levelUp': # WIP
-            # if int(player_data[entry['username']]['skills'][entry['skill']]) < int(entry['level']): # Level Up
-            #     player_data[entry['username']]['skills'][entry['skill']] = entry['level']
-            #     msg = f"```🎉 {entry['username']} has leveled up their {entry['skill']} to {entry['level']}! {SKILL_EMOJIS.get(entry['skill'], "")}```"
-            #     channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
-            #     if channel:
-            #         await channel.send(msg)
-            # else:
-            #     player_data[entry['username']]['skills'][entry['skill']] = entry['level']
-            pz_perk_log_agent.update_new_perk_log(new_perk_log[entry]['timestamp'])
-# end check_perk_logs
+# async def check_perk_logs(): 
+#     new_perk_log = pz_perk_log_agent.get_new_log().copy()
+#     for entry in new_perk_log:
+#         if new_perk_log[entry]['type'] == 'unhandled': # Do not care for these anymore
+#             pz_perk_log_agent.update_new_perk_log(new_perk_log[entry]['timestamp'])
+#             continue
+#         if new_perk_log[entry]['type'] == 'skills': # Do not care for these anymore
+#             pz_perk_log_agent.update_new_perk_log(new_perk_log[entry]['timestamp'])
+#         elif new_perk_log[entry]['type'] == 'login': # Do not care for these anymore
+#             pz_perk_log_agent.update_new_perk_log(new_perk_log[entry]['timestamp'])
+#         elif new_perk_log[entry]['type'] == 'creation': # Do not care for these anymore
+#             pz_perk_log_agent.update_new_perk_log(new_perk_log[entry]['timestamp'])
+#         elif new_perk_log[entry]['type'] == 'died': # IMPORTANT!
+#             # In-game time
+#             player = player_data_agent.get_player_data()[new_perk_log[entry]['username']]
+#             in_game_days = int(player['hours_survived'] // (24))
+#             in_game_hours = int(player['hours_survived'])
+#             in_game_minutes = int(player['hours_survived'] * 60)
+#             if player['hours_survived'] >= 1:
+#                 in_game_str = f"{in_game_days} days {in_game_hours} hours {in_game_minutes} minutes" if in_game_days > 0 else f"{in_game_hours} hours {in_game_minutes} minutes"
+#             else:
+#                 in_game_str = "less than 1 hour"
+#             # Real-life time # 1 Full In-Game Day is 1 IRL Hour
+#             in_game_hours = player['hours_survived']
+#             real_days = int(in_game_hours // 24*24) # 24 Hours is 576 Zomboid Hours
+#             real_hours = int(in_game_hours // 24) # 1 Hour is 24 Zomboid Hours
+#             real_mins = int(in_game_hours // (24/60)) # 1/60 Hours is 0.4 Zomboid Hours
+#             if real_mins >= 1:
+#                 real_str = f"{real_days} days {real_hours} hours {real_mins} minutes" if real_days > 0 else f"{real_hours} hours {real_mins} minutes"
+#             else:
+#                 real_str = "less than a minute"
+#             msg = f"""
+#             ```💀 {new_perk_log[entry]['username']} has died.
+#             Survived in-game: {in_game_str}
+#             Real-life: {real_str}```
+#             """
+#             if death_channel:
+#                 await death_channel.send(msg)
+#             pz_perk_log_agent.update_new_perk_log(new_perk_log[entry]['timestamp'])
+#         elif new_perk_log[entry]['type'] == 'levelUp': # WIP
+#             # if int(player_data[entry['username']]['skills'][entry['skill']]) < int(entry['level']): # Level Up
+#             #     player_data[entry['username']]['skills'][entry['skill']] = entry['level']
+#             #     msg = f"```🎉 {entry['username']} has leveled up their {entry['skill']} to {entry['level']}! {SKILL_EMOJIS.get(entry['skill'], "")}```"
+#             #     channel = bot.get_channel(settings_discord[target_bot]['LEVELUP_CHANNEL_ID'])
+#             #     if channel:
+#             #         await channel.send(msg)
+#             # else:
+#             #     player_data[entry['username']]['skills'][entry['skill']] = entry['level']
+#             pz_perk_log_agent.update_new_perk_log(new_perk_log[entry]['timestamp'])
+# # end check_perk_logs
 
 # --------------------
 # DISCORD STATUS
@@ -362,7 +387,7 @@ async def update_status():
 async def periodic_save():
     await poll_players()
     await update_status()
-    await check_perk_logs()
+    # await check_perk_logs()
 # end periodic_save
 
 # --------------------

@@ -20,6 +20,7 @@ class Agent_Player_Data():
         self.__settings = read_connection_settings()
         self.__player_data = read_json_file(file_path='./player_data.json') # Reads player_data.json
         self.__level_ups = []
+        self.__deaths = []
         self.merge_dupes()
         self.repair_player_data()
         # await self.poll_player_data()
@@ -85,8 +86,11 @@ class Agent_Player_Data():
                             player_data['lastPoll'] = time.time()
 
                         for perk in player_data['perks']:
-                            if player_data['perks'][perk] > self.__player_data[player_data['username'].lower()]['perks'][perk]:
+                            if player_data['perks'][perk] > self.__player_data[player_data['username'].lower()]['perks'][perk]: # Check for level ups
                                 self.__level_ups.append((player_data['username'].lower(), perk, player_data['perks'][perk], self.__player_data[player_data['username'].lower()]['perks'][perk]))
+
+                        if player_data['is_alive'] != self.__player_data[player_data['username'].lower()]['is_alive']: # Check for deaths
+                            self.__deaths.append((player_data['username'].lower(), self.__player_data[player_data['username'].lower()]['hours_survived'])) 
 
                         self.__player_data[player_data['username'].lower()] = player_data
                     else:
@@ -243,6 +247,11 @@ class Agent_Player_Data():
         self.__level_ups = []
         return curr_val
     # end get_level_ups
+
+    def get_deaths(self) -> list[tuple[str, float]]:
+        curr_val = copy.deepcopy(self.__deaths)
+        self.__deaths = []
+        return curr_val
 # end PerkCollector
 
 if __name__ == '__main__': # For testing purposes
