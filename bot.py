@@ -228,6 +228,7 @@ async def announce_server_status(online: bool = False):
         return
     msg = "🟢 - Project Zomboid server is now ONLINE" if online else "🔴 - Project Zomboid server is OFFLINE"
     await channel.send(f"# {msg}")
+# end announce_server_status
 
 # --------------------
 # PLAYER POLLING + SURVIVAL + SKILL RESET ON DEATH + LEVEL-UPS
@@ -352,6 +353,7 @@ async def update_status():
                 await announce_server_status(False)
     except Exception:
         LOGGER.info(f'Variable server_online is in state {server_online} and curr_activity is set to {curr_activity}')
+# end update_status
 
 # --------------------
 # SAVE LOOP
@@ -372,6 +374,7 @@ async def on_ready():
     LOGGER.info(f"{bot.user} has connected to Discord!")
     periodic_save.start()
     LOGGER.info("Successfully finished startup")
+# end on_ready
 
 # --------------------
 # COMMANDS (Slash)
@@ -700,6 +703,7 @@ async def skill_slash(interaction: discord.Interaction, target:str): #target2:st
 @commands.guild_only()
 @commands.has_permissions(manage_guild=True) # Only usable by moderators 
 async def sync(ctx: commands.Context, guilds: commands.Greedy[discord.Object], spec: Optional[Literal["~", "*", "^"]] = None) -> None:
+    await ctx.defer(ephemeral=True)
     LOGGER.info(f'Attempting to sync commands... Please wait.')
     if not guilds:
         if spec == "~":
@@ -713,13 +717,11 @@ async def sync(ctx: commands.Context, guilds: commands.Greedy[discord.Object], s
             synced = []
         else:
             synced = await ctx.bot.tree.sync()
-
         await ctx.send(
-            f"Synced {len(synced)} commands {'globally' if spec is None else 'to the current guild.'}"
+            f"```Synced {len(synced)} commands {'globally' if spec is None else 'to the current guild.'}```"
         )
         LOGGER.info(f"Synced {len(synced)} commands {'globally' if spec is None else 'to the current guild.'}")
         return
-
     ret = 0
     for guild in guilds:
         try:
@@ -728,9 +730,9 @@ async def sync(ctx: commands.Context, guilds: commands.Greedy[discord.Object], s
             pass
         else:
             ret += 1
-
-    await ctx.send(f"Synced the tree to {ret}/{len(guilds)}.")
+    await ctx.send(f"```Synced the tree to {ret}/{len(guilds)}.```")
     LOGGER.info(f"Synced the tree to {ret}/{len(guilds)}.")
+# end sync
 
 @tree.command(name="commands", description="Show all available commands")
 async def commands_slash(interaction: discord.Interaction):    
