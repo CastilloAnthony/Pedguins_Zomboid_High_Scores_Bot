@@ -16,7 +16,7 @@ from discord import app_commands
 from read_discord_settings import read_discord_settings
 from read_connection_settings import read_connection_settings
 from agent_player_data import Agent_Player_Data
-from agent_perk_log import Agent_Perk_Log
+# from agent_perk_log import Agent_Perk_Log
 from agent_pz_rcon import Agent_PZ_RCON
 from player_data_functions import read_json_file
 
@@ -273,7 +273,7 @@ async def poll_players():
         if channel:
             await channel.send(msg)
     deaths = player_data_agent.get_deaths()
-    for player_name, hours_survived in deaths:
+    for player_name, hours_survived, zombie_kills, sum_of_perks, highest_skill, skill_level in deaths:
         # In-game time
         in_game_days = int(hours_survived // (24))
         in_game_hours = int(hours_survived)
@@ -290,11 +290,17 @@ async def poll_players():
             real_str = f"{real_days} days {real_hours} hours {real_mins} minutes" if real_days > 0 else f"{real_hours} hours {real_mins} minutes"
         else:
             real_str = "less than a minute"
+        skill_emojis = read_json_file('./skill_emojis.json')
+        emoji = skill_emojis.get(highest_skill, '')
         msg = f"""
-        ```💀 {player_name} has died.
-        Survived in-game: {in_game_str}
-        Real-life: {real_str}```
-        """
+            ```
+💀 {player_name} has died.
+Survived in-game: {in_game_str}
+Real-life: {real_str}
+Zombie Kills: {zombie_kills}
+Total Skills: {sum_of_perks}
+Highest Skill: {emoji} {highest_skill} at {skill_level}```
+        """ # String is formatted all the way to the left, leave it there!
         if death_channel:
             await death_channel.send(msg)
 # end poll_players

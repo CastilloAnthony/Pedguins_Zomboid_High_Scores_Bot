@@ -47,7 +47,9 @@ class Agent_Player_Data():
                     # remote_file_path =os.path.join(self.__settings['SFTP_PLAYER_DATA_PATH'], filename) # Windows
                     local_file_path = os.path.join(self.__settings['LOCAL_PLAYER_DATA_PATH'], filename)
                     sftp.get(remotepath=remote_file_path, localpath=local_file_path)
-                self.update_player_data()
+                if sftp:
+                    sftp.close()
+                await self.update_player_data()
         except:
             error = traceback.format_exc()
             lines = error.split('\n')
@@ -61,7 +63,7 @@ class Agent_Player_Data():
         return True
     # end poll_server
 
-    def update_player_data(self) -> None:
+    async def update_player_data(self) -> None:
         """Imports json files from a specific directory into a local variable and saves an updated player_data.json
         """
         for (dir_path, dir_names, filenames) in os.walk(self.__settings['LOCAL_PLAYER_DATA_PATH']):
@@ -85,12 +87,20 @@ class Agent_Player_Data():
                         else:
                             player_data['lastPoll'] = time.time()
 
-                        for perk in player_data['perks']:
-                            if player_data['perks'][perk] > self.__player_data[player_data['username'].lower()]['perks'][perk]: # Check for level ups
-                                self.__level_ups.append((player_data['username'].lower(), perk, player_data['perks'][perk], self.__player_data[player_data['username'].lower()]['perks'][perk]))
+                        if player_data['is_alive'] == self.__player_data[player_data['username'].lower()]['is_alive']: # Level Up Detected
+                            for perk in player_data['perks']:
+                                if player_data['perks'][perk] > self.__player_data[player_data['username'].lower()]['perks'][perk]: # Check for level ups
+                                    self.__level_ups.append((player_data['username'].lower(), perk, player_data['perks'][perk], self.__player_data[player_data['username'].lower()]['perks'][perk]))
 
-                        if player_data['is_alive'] != self.__player_data[player_data['username'].lower()]['is_alive']: # Check for deaths
-                            self.__deaths.append((player_data['username'].lower(), self.__player_data[player_data['username'].lower()]['hours_survived'])) 
+                        if player_data['is_alive'] != self.__player_data[player_data['username'].lower()]['is_alive'] and player_data['is_alive'] != True: # Check for deaths, Exclue new character
+                            self.__deaths.append((
+                                player_data['username'].lower(), 
+                                player_data['hours_survived'], 
+                                player_data['zombie_kills'], 
+                                sum(player_data['perks'].values()), 
+                                max(player_data['perks'],key=player_data['perks'].get), 
+                                player_data['perks'][max(player_data['perks'],key=player_data['perks'].get)],
+                                ))
 
                         self.__player_data[player_data['username'].lower()] = player_data
                     else:
@@ -248,7 +258,7 @@ class Agent_Player_Data():
         return curr_val
     # end get_level_ups
 
-    def get_deaths(self) -> list[tuple[str, float]]:
+    def get_deaths(self) -> list[tuple[str, float, int, int, str, int]]:
         curr_val = copy.deepcopy(self.__deaths)
         self.__deaths = []
         return curr_val
