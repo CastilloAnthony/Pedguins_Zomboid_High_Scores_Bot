@@ -1,4 +1,5 @@
 # This file developed by Anthony Castillo (ComradeWolf)
+# This file deprecated
 import os
 from pathlib import Path
 import traceback

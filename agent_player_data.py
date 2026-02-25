@@ -49,6 +49,7 @@ class Agent_Player_Data():
                     sftp.get(remotepath=remote_file_path, localpath=local_file_path)
                 if sftp:
                     sftp.close()
+                    transport.close()
                 await self.update_player_data()
         except:
             error = traceback.format_exc()
@@ -60,6 +61,7 @@ class Agent_Player_Data():
         finally:
             if sftp:
                 sftp.close()
+                transport.close()
         return True
     # end poll_server
 
@@ -87,19 +89,25 @@ class Agent_Player_Data():
                         else:
                             player_data['lastPoll'] = time.time()
 
-                        if player_data['is_alive'] == self.__player_data[player_data['username'].lower()]['is_alive']: # Level Up Detected
+                        if player_data['is_alive'] == self.__player_data[player_data['username'].lower()]['is_alive']: # Ensures that player is still alive and not a new character
                             for perk in player_data['perks']:
-                                if player_data['perks'][perk] > self.__player_data[player_data['username'].lower()]['perks'][perk]: # Check for level ups
-                                    self.__level_ups.append((player_data['username'].lower(), perk, player_data['perks'][perk], self.__player_data[player_data['username'].lower()]['perks'][perk]))
+                                if player_data['perks'][perk] == self.__player_data[player_data['username'].lower()]['perks'][perk]+1: # Level Up Detection
+                                    self.__level_ups.append((
+                                        player_data['username'], # Username
+                                        perk, # Name of Perk
+                                        player_data['perks'][perk], # New level of perk
+                                        self.__player_data[player_data['username'].lower()]['perks'][perk] # Player's previous perk level
+                                        ))
 
                         if player_data['is_alive'] != self.__player_data[player_data['username'].lower()]['is_alive'] and player_data['is_alive'] != True: # Check for deaths, Exclue new character
+                            perks_exclude_fitness_strength = {perk: level for perk, level in player_data['perks'].items() if perk not in ['Fitness', 'Strength']}
                             self.__deaths.append((
-                                player_data['username'].lower(), 
+                                player_data['username'], 
                                 player_data['hours_survived'], 
                                 player_data['zombie_kills'], 
                                 sum(player_data['perks'].values()), 
-                                max(player_data['perks'],key=player_data['perks'].get), 
-                                player_data['perks'][max(player_data['perks'],key=player_data['perks'].get)],
+                                max(perks_exclude_fitness_strength,key=perks_exclude_fitness_strength.get), 
+                                player_data['perks'][max(perks_exclude_fitness_strength,key=perks_exclude_fitness_strength.get)],
                                 ))
 
                         self.__player_data[player_data['username'].lower()] = player_data

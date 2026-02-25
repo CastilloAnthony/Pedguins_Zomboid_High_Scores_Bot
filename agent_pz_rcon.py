@@ -21,7 +21,6 @@ class Agent_PZ_RCON():
     async def poll_pz_server(self) -> None:
         """Polls PZ server for a list of currently online players
         """
-        response = None
         try:
             with MCRcon(self.__settings['RCON_HOST'], self.__settings['RCON_PASSWORD'], port=self.__settings['RCON_PORT']) as rcon:
                 if not self.__server_status:
@@ -44,6 +43,25 @@ class Agent_PZ_RCON():
             LOGGER.error('Error in agent_pz_rcon.py function poll_pz_server')
             return
     # end poll_pz_server
+
+    async def say_to_pz_server(self, message:str) -> None:
+        # print(message)
+        try:
+            with MCRcon(self.__settings['RCON_HOST'], self.__settings['RCON_PASSWORD'], port=self.__settings['RCON_PORT']) as rcon:
+                if not self.__server_status:
+                    self.__server_status = True
+                response = rcon.command(f'servermsg "{message}"').splitlines()
+                print(response)
+        except:
+            if self.__server_status:
+                self.__server_status = False
+            error = traceback.format_exc()
+            lines = error.split('\n')
+            print(error)
+            LOGGER.error('Can\'t reach Project Zomboid Server: '+str(lines[-1]))
+            LOGGER.error('Error in agent_pz_rcon.py function say_to_pz_server')
+            return
+    # end say_to_pz_server
 
     def get_online_players(self) -> set:
         return self.__online_players

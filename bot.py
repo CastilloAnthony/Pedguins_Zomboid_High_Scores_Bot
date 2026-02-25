@@ -283,7 +283,7 @@ async def poll_players():
         else:
             in_game_str = "less than 1 hour"
         # Real-life time # 1 Full In-Game Day is 1 IRL Hour
-        real_days = int(hours_survived // 24*24) # 24 Hours is 576 Zomboid Hours
+        real_days = int(hours_survived // (24*24)) # 24 Hours is 576 Zomboid Hours
         real_hours = int(hours_survived // 24) # 1 Hour is 24 Zomboid Hours
         real_mins = int(hours_survived // (24/60)) # 1/60 Hours is 0.4 Zomboid Hours
         if real_mins >= 1:
@@ -292,17 +292,19 @@ async def poll_players():
             real_str = "less than a minute"
         skill_emojis = read_json_file('./skill_emojis.json')
         emoji = skill_emojis.get(highest_skill, '')
-        msg = f"""
-            ```
-💀 {player_name} has died.
-Survived in-game: {in_game_str}
-Real-life: {real_str}
-Zombie Kills: {zombie_kills}
-Total Skills: {sum_of_perks}
-Highest Skill: {emoji} {highest_skill} at {skill_level}```
-        """ # String is formatted all the way to the left, leave it there!
+        message = [
+            f' {player_name} has died.',
+            f'Survived in-game: {in_game_str}.',
+            f'Real-life: {real_str}.',
+            f'Zombie Kills: {zombie_kills}.',
+            f'Total Skills: {sum_of_perks}.',
+            f'Highest Skill: {highest_skill} at {skill_level}.',
+        ] # String is formatted all the way to the left, leave it there!
+        # await pz_rcon_agent.say_to_pz_server(' '.join(message))
+        message[0] = '💀 '+message[0]
+        message[5] = emoji+' '+message[5]
         if death_channel:
-            await death_channel.send(msg)
+            await death_channel.send(f'```{"\n".join(message)}```')
 # end poll_players
 
 # async def check_perk_logs(): 
@@ -413,7 +415,7 @@ async def on_ready():
 @tree.command(name="online", description="Show currently online players.")
 async def online_slash(interaction: discord.Interaction):
     global pz_rcon_agent, player_data_agent
-    await interaction.response.defer(thinking=True)
+    # await interaction.response.defer(thinking=True)
 
     if not pz_rcon_agent.get_online_players():
         # await interaction.response.send_message("```🟢 - No players are currently online.```")
@@ -426,15 +428,15 @@ async def online_slash(interaction: discord.Interaction):
             duration = now - player_data_agent.get_player_data()[player]['lastLogin'] #player_sessions.get(player, now)
             h, m, s = int(duration//3600), int((duration%3600)//60), int((duration%(60*60)%60))
             lines.append(f"- {player.capitalize()} ({h}h {m}m {s}s)")
-    # await interaction.response.send_message(f"```🟢 - Players Online (Session Time):\n" + "\n".join(lines) + f"\n\nTotal: {len(pz_rcon_agent.get_online_players())}```")
-    await interaction.followup.send(f"```🟢 - Players Online (Session Time):\n" + "\n".join(lines) + f"\n\nTotal: {len(pz_rcon_agent.get_online_players())}```")
+    await interaction.response.send_message(f"```🟢 - Players Online (Session Time):\n" + "\n".join(lines) + f"\n\nTotal: {len(pz_rcon_agent.get_online_players())}```")
+    # await interaction.followup.send(f"```🟢 - Players Online (Session Time):\n" + "\n".join(lines) + f"\n\nTotal: {len(pz_rcon_agent.get_online_players())}```")
 # end online_slash
 
 @tree.command(name="time", description="Show total playtime for a player.")
 @app_commands.describe(target="Player name or 'all'")
 async def time_slash(interaction: discord.Interaction, target: str):
     global pz_rcon_agent, player_data_agent
-    await interaction.response.defer(thinking=True)
+    # await interaction.response.defer(thinking=True)
 
     if target.lower() == "all":
         player_times = []
@@ -450,8 +452,8 @@ async def time_slash(interaction: discord.Interaction, target: str):
             h, m, s = int(sec//3600), int((sec%3600)//60), int((sec%3600)%60)
             status = "🟢" if p in pz_rcon_agent.get_online_players() else "🔴"
             lines.append(f"{status} - {p.capitalize()}: {h}h {m}m {s}s")
-        # await interaction.response.send_message("```🕒 - Top 10 Players by Total Playtime:\n" + "\n".join((lines)) + "```")
-        await interaction.followup.send("```🕒 - Top 10 Players by Total Playtime:\n" + "\n".join((lines)) + "```")
+        await interaction.response.send_message("```🕒 - Top 10 Players by Total Playtime:\n" + "\n".join((lines)) + "```")
+        # await interaction.followup.send("```🕒 - Top 10 Players by Total Playtime:\n" + "\n".join((lines)) + "```")
     elif target.lower() in player_data_agent.get_player_data(): # A Singlar Player
         player_data = player_data_agent.get_player_data()[target.lower()]
         h, m, s = 0, 0, 0
@@ -461,18 +463,18 @@ async def time_slash(interaction: discord.Interaction, target: str):
         else:
             h, m, s = int(player_data['totalPlayTime']//3600), int((player_data['totalPlayTime']%3600)//60), int((player_data['totalPlayTime']%3600)%60)
         status = "🟢" if target.lower() in pz_rcon_agent.get_online_players() else "🔴"
-        # await interaction.response.send_message(f"```{status} - {target.capitalize()} has played for {h}h {m}m {s}s in total.```")
-        await interaction.followup.send(f"```{status} - {target.capitalize()} has played for {h}h {m}m {s}s in total.```")
+        await interaction.response.send_message(f"```{status} - {target.capitalize()} has played for {h}h {m}m {s}s in total.```")
+        # await interaction.followup.send(f"```{status} - {target.capitalize()} has played for {h}h {m}m {s}s in total.```")
     else:
-        # await interaction.response.send_message(f'```Could not find a player named {target}.```')
-        await interaction.followup.send(f'```Could not find a player named {target}.```')
+        await interaction.response.send_message(f'```Could not find a player named {target}.```')
+        # await interaction.followup.send(f'```Could not find a player named {target}.```')
 # end time_slash
 
 @tree.command(name="survived", description="Shows the total time a player's current character has survived for in in-game hours.")
 @app_commands.describe(target="Player name or 'all'")
 async def survived_slash(interaction: discord.Interaction, target: str):
     global pz_rcon_agent, player_data_agent
-    await interaction.response.defer(thinking=True)
+    # await interaction.response.defer(thinking=True)
 
     if target.lower() == "all":
         player_times = []
@@ -484,25 +486,25 @@ async def survived_slash(interaction: discord.Interaction, target: str):
         for p, hours, days, _ in player_times[:10]: # Top 10 (arrays/lists start at 0 and this syntax goes up to, but does not include the last index)
             status = "🟢" if p in pz_rcon_agent.get_online_players() else "🔴"
             lines.append(f"{status} - {p.capitalize()}: {int(days)} days {int(hours)} hours")
-        # await interaction.response.send_message("```🕒 - Top 10 Current Character by In-Game Survival Hours:\n" + "\n".join((lines)) + "```")
-        await interaction.followup.send("```🕒 - Top 10 Current Character by In-Game Survival Hours:\n" + "\n".join((lines)) + "```")
+        await interaction.response.send_message("```🕒 - Top 10 Current Character by In-Game Survival Hours:\n" + "\n".join((lines)) + "```")
+        # await interaction.followup.send("```🕒 - Top 10 Current Character by In-Game Survival Hours:\n" + "\n".join((lines)) + "```")
     elif target.lower() in player_data_agent.get_player_data(): # A Singlar Player
         player_data = player_data_agent.get_player_data()[target.lower()]
         days = int(player_data['hours_survived']//24)
         hours = int(player_data['hours_survived']%24)
         status = "🟢" if target.lower() in pz_rcon_agent.get_online_players() else "🔴"
-        # await interaction.response.send_message(f"```{status} - {target.capitalize()} has survived for {days} days and {hours} hours in-game.```")
-        await interaction.followup.send(f"```{status} - {target.capitalize()} has survived for {days} days and {hours} hours in-game.```")
+        await interaction.response.send_message(f"```{status} - {target.capitalize()} has survived for {days} days and {hours} hours in-game.```")
+        # await interaction.followup.send(f"```{status} - {target.capitalize()} has survived for {days} days and {hours} hours in-game.```")
     else:
-        # await interaction.response.send_message(f'```Could not find a player named {target}.```')
-        await interaction.followup.send(f'```Could not find a player named {target}.```')
+        await interaction.response.send_message(f'```Could not find a player named {target}.```')
+        # await interaction.followup.send(f'```Could not find a player named {target}.```')
 # end survived_slash
 
 @tree.command(name="zombies", description="Shows a player's total zombie kills.")
 @app_commands.describe(target="Player name or 'all'")
 async def zombies_slash(interaction: discord.Interaction, target: str):
     global pz_rcon_agent, player_data_agent
-    await interaction.response.defer(thinking=True)
+    # await interaction.response.defer(thinking=True)
 
     if target.lower() == "all":
         player_times = []
@@ -520,11 +522,11 @@ async def zombies_slash(interaction: discord.Interaction, target: str):
         player_data = player_data_agent.get_player_data()[target.lower()]
         zombies = player_data['zombie_kills']
         status = "🟢" if target.lower() in pz_rcon_agent.get_online_players() else "🔴"
-        # await interaction.response.send_message(f"```{status} - {target.capitalize()} has killed {zombies} zombies.```")
-        await interaction.followup.send(f"```{status} - {target.capitalize()} has killed {zombies} zombies.```")
+        await interaction.response.send_message(f"```{status} - {target.capitalize()} has killed {zombies} zombies.```")
+        # await interaction.followup.send(f"```{status} - {target.capitalize()} has killed {zombies} zombies.```")
     else:
-        # await interaction.response.send_message(f'```Could not find a player named {target}.```')
-        await interaction.followup.send(f'```Could not find a player named {target}.```')
+        await interaction.response.send_message(f'```Could not find a player named {target}.```')
+        # await interaction.followup.send(f'```Could not find a player named {target}.```')
 # end zombies_slash
 
 # ------------------- #
@@ -566,7 +568,7 @@ async def skill_slash(interaction: discord.Interaction, target:str): #target2:st
     # if target2 != None:
     #     target_lower = (target+' '+target2).lower()
     # target_lower = target.lower()
-    await interaction.response.defer(thinking=True)
+    # await interaction.response.defer(thinking=True)
     # ----------------------
     # TOTAL SKILLS LEADERBOARD
     # ----------------------
@@ -599,10 +601,10 @@ async def skill_slash(interaction: discord.Interaction, target:str): #target2:st
             status = "🟢" if p in [pl.lower() for pl in pz_rcon_agent.get_online_players()] else "🔴"
             lines.append(f"{status} - {display_name_cap}: {total}")
 
-        # await interaction.response.send_message(
-        #     f"```📊 - Top 10 Players by Total Skills:\n" + "\n".join(lines) + "```"
-        # )
-        await interaction.followup.send(f"```📊 - Top 10 Players by Total Skills:\n" + "\n".join(lines) + "```")
+        await interaction.response.send_message(
+            f"```📊 - Top 10 Players by Total Skills:\n" + "\n".join(lines) + "```"
+        )
+        # await interaction.followup.send(f"```📊 - Top 10 Players by Total Skills:\n" + "\n".join(lines) + "```")
         return  # <<< THIS RETURN IS CRUCIAL
 
     # ----------------------
@@ -632,17 +634,17 @@ async def skill_slash(interaction: discord.Interaction, target:str): #target2:st
             status = "🟢" if p in [pl.lower() for pl in pz_rcon_agent.get_online_players()] else "🔴"
             lines.append(f"{status} - {p}: {lvl}")
 
-        # await interaction.response.send_message(
-        #     f"```{emoji} - Top 10 Players by {SKILL_DISPLAY.get(skill_key, skill_key)}:\n" + "\n".join(lines) + "```"
-        # )
-        await interaction.followup.send(f"```{emoji} - Top 10 Players by {SKILL_DISPLAY.get(skill_key, skill_key)}:\n" + "\n".join(lines) + "```")
+        await interaction.response.send_message(
+            f"```{emoji} - Top 10 Players by {SKILL_DISPLAY.get(skill_key, skill_key)}:\n" + "\n".join(lines) + "```"
+        )
+        # await interaction.followup.send(f"```{emoji} - Top 10 Players by {SKILL_DISPLAY.get(skill_key, skill_key)}:\n" + "\n".join(lines) + "```")
         return
 
     # OTHERWISE TREAT AS PLAYER NAME
     player_key = target_lower
     if player_key not in player_data_agent.get_player_data():
-        # await interaction.response.send_message(f"```Could not find player with name {player_key}```")
-        await interaction.followup.send(f"```Could not find player or skill with name {player_key}```")
+        await interaction.response.send_message(f"```Could not find player or skill with name {player_key}```")
+        # await interaction.followup.send(f"```Could not find player or skill with name {player_key}```")
         return
         # player_skills[player_key] = DEFAULT_SKILLS.copy()
 
@@ -652,7 +654,9 @@ async def skill_slash(interaction: discord.Interaction, target:str): #target2:st
     status = "🟢 Online" if player_key in [pl.lower() for pl in online_players] else "🔴 Offline"
 
     # Sort skills by highest first
-    sorted_skills = sorted(skills.items(), key=lambda x: x[0], reverse=False)
+    # sorted_skills_by_name = sorted(skills.items(), key=lambda x: x[0], reverse=False)
+    # print(sorted_skills_by_name)
+    sorted_skills = sorted(skills.items(), key=lambda x: x[1], reverse=False)
 
     lines = []
     for skill_name, lvl in sorted_skills:
@@ -662,8 +666,8 @@ async def skill_slash(interaction: discord.Interaction, target:str): #target2:st
         display_name_skill = SKILL_DISPLAY.get(skill_name, skill_name)
         lines.append(f"{emoji} {display_name_skill}: {lvl}")
 
-    # await interaction.response.send_message(f"```{status} - {display_name}'s Skills\n" + "\n".join(lines) + "```")
-    await interaction.followup.send(f"```{status} - {display_name}'s Skills\n" + "\n".join(lines) + "```")
+    await interaction.response.send_message(f"```{status} - {display_name}'s Skills\n" + "\n".join(lines) + "```")
+    # await interaction.followup.send(f"```{status} - {display_name}'s Skills\n" + "\n".join(lines) + "```")
 
     # # ----------------------
     # # TOTAL SKILLS LEADERBOARD
@@ -734,7 +738,7 @@ async def skill_slash(interaction: discord.Interaction, target:str): #target2:st
 @commands.guild_only()
 @commands.has_permissions(manage_guild=True) # Only usable by moderators 
 async def sync(ctx: commands.Context, guilds: commands.Greedy[discord.Object], spec: Optional[Literal["~", "*", "^"]] = None) -> None:
-    await ctx.defer(ephemeral=True)
+    # await ctx.defer(ephemeral=True)
     LOGGER.info(f'Attempting to sync commands... Please wait.')
     if not guilds:
         if spec == "~":
