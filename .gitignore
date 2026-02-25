@@ -7,6 +7,8 @@ db_agent.py
 *.db
 PerkLogs/
 PedguinsHighScoresCollector/
+!skill_aliases.json
+!skill_emojis.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

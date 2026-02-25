@@ -2,6 +2,7 @@
 import os
 import time
 from pathlib import Path
+import copy
 import traceback
 import paramiko
 import logging
@@ -18,12 +19,13 @@ class Agent_Player_Data():
         """
         self.__settings = read_connection_settings()
         self.__player_data = read_json_file(file_path='./player_data.json') # Reads player_data.json
+        self.__level_ups = []
         self.merge_dupes()
         self.repair_player_data()
-        self.poll_player_data()
+        # await self.poll_player_data()
     # end __init__
 
-    def poll_player_data(self) -> bool:
+    async def poll_player_data(self) -> bool:
         """Connects to and copies player_data.json files from the sftp server host
 
         Returns:
@@ -44,6 +46,7 @@ class Agent_Player_Data():
                     # remote_file_path =os.path.join(self.__settings['SFTP_PLAYER_DATA_PATH'], filename) # Windows
                     local_file_path = os.path.join(self.__settings['LOCAL_PLAYER_DATA_PATH'], filename)
                     sftp.get(remotepath=remote_file_path, localpath=local_file_path)
+                self.update_player_data()
         except:
             error = traceback.format_exc()
             lines = error.split('\n')
@@ -54,7 +57,6 @@ class Agent_Player_Data():
         finally:
             if sftp:
                 sftp.close()
-        self.update_player_data()
         return True
     # end poll_server
 
@@ -81,6 +83,10 @@ class Agent_Player_Data():
                             player_data['lastPoll'] = self.__player_data[player_data['username'].lower()]['lastPoll']
                         else:
                             player_data['lastPoll'] = time.time()
+
+                        for perk in player_data['perks']:
+                            if player_data['perks'][perk] > self.__player_data[player_data['username'].lower()]['perks'][perk]:
+                                self.__level_ups.append((player_data['username'].lower(), perk, player_data['perks'][perk], self.__player_data[player_data['username'].lower()]['perks'][perk]))
 
                         self.__player_data[player_data['username'].lower()] = player_data
                     else:
@@ -128,7 +134,7 @@ class Agent_Player_Data():
                     player_data['totalPlayTime'] = 0.0
 
                 if 'perks' not in player_data and 'skills' in player_data:
-                    player_data['perks'] = player_data['skills']
+                    player_data['perks'] = get_default_skills()
                     player_data.pop('skills')
                 elif 'perks' not in player_data:
                     player_data['perks'] = get_default_skills()
@@ -141,6 +147,21 @@ class Agent_Player_Data():
 
                 if 'is_alive' not in player_data:
                     player_data['is_alive'] = True
+
+                old_skills = [
+                    'Husbandry', 'Farming', 'Blacksmith', 'Woodwork', 
+                    'Electricity', 'Doctor', 'PlantScavenging', 'FlintKnapping', 
+                    'Lightfoot', 'LongBlade', 'Blunt', 'Sprinting', 
+                    'SmallBlade', 'SmallBlunt', 'Sneak', 'MetalWelding', 
+                    ]
+                if 'perks' in player_data:
+                    recreate = False
+                    for perk in player_data['perks']:
+                        if perk in old_skills:
+                            recreate = True
+                    if recreate:
+                        player_data.pop('perks')
+                        player_data['perks'] = get_default_skills()
 
                 self.__player_data[player] = player_data
             else:
@@ -216,6 +237,12 @@ class Agent_Player_Data():
         else:
             return self.__player_data
     # end get_player_data
+
+    def get_level_ups(self) -> list[tuple[str, str, int, int]]:
+        curr_val = copy.deepcopy(self.__level_ups)
+        self.__level_ups = []
+        return curr_val
+    # end get_level_ups
 # end PerkCollector
 
 if __name__ == '__main__': # For testing purposes

@@ -19,10 +19,10 @@ class Agent_Perk_Log():
         self.__perk_log = read_json_file('pz_perk_log.json')
         self.__new_perk_log = {}
         self.__latest_perk_log_filename = ''
-        self.poll_perk_log()
+        # self.poll_perk_log()
     # end __init__
 
-    def poll_perk_log(self) -> bool:
+    async def poll_perk_log(self) -> bool:
         """Connects to and copies *_PerkLog.json files from the sftp server host
 
         Returns:
@@ -39,9 +39,11 @@ class Agent_Perk_Log():
             perk_log_file = sorted([f for f in filesnames if f.endswith('_PerkLog.txt')])
             if perk_log_file:
                 for filename in perk_log_file:
-                    remote_file_path = os.path.join(self.__settings['LOG_DIR'], filename)
-                    self.__latest_perk_log_filename = os.path.join(self.__settings['LOCAL_PERK_LOG_PATH'], 'PerkLog.txt')
+                    remote_file_path = self.__settings['LOG_DIR']+"/"+filename # Linux
+                    # remote_file_path = os.path.join(self.__settings['LOG_DIR'], filename) # Windows
+                    self.__latest_perk_log_filename = os.path.join(self.__settings['LOCAL_PERK_LOG_PATH'], filename)
                     sftp.get(remotepath=remote_file_path, localpath=self.__latest_perk_log_filename)
+                self.update_perk_log()
         except:
             error = traceback.format_exc()
             lines = error.split('\n')
@@ -52,7 +54,6 @@ class Agent_Perk_Log():
         finally:
             if sftp:
                 sftp.close()
-        self.update_perk_log()
         return True
     # end poll_perk_log
 

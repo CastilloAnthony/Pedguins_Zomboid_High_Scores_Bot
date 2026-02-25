@@ -1,0 +1,44 @@
+{
+    "tailor": "Tailoring",
+    "tailoring": "Tailoring",
+
+    "electric": "Electrical",
+    "electrical": "Electrical",
+
+    "weld": "Welding",
+    "welding": "Welding",
+
+    "longblade": "Long Blade",
+    "long blade": "Long Blade",
+
+    "longblunt": "Long Blunt",
+    "long blunt": "Long Blunt",
+
+    "smallblade": "Small Blade",
+    "small blade": "Small Blade",
+
+    "smallblunt": "Small Blunt",
+    "small blunt": "Small Blunt",
+
+    "forage": "Foraging",
+    "foraging": "Foraging",
+    "plantscavenging": "Foraging",
+
+    "firstaid": "First Aid",
+    "first aid": "First Aid",
+    "doctor": "First Aid",
+
+    "knapping": "Knapping",
+    "flintknapping": "Knapping",
+
+    "axe": "Axe",
+
+    "wood": "Carpentry",
+    "woodworking": "Carpentry",
+    "carpentry": "Carpentry",
+    "woodwork": "Carpentry",
+
+    "husbandry": "Animal Care",
+    "animalcare": "Animal Care",
+    "animal care": "Animal Care"
+}

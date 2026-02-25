@@ -5,7 +5,9 @@ from pathlib import Path
 import logging
 # from uuid import uuid4
 LOGGER: logging.Logger = logging.getLogger("bot")
+import copy
 
+# Old Style
 # DEFAULT_SKILLS = {
 #     "Fitness": 0,
 #     "Strength": 0,
@@ -94,18 +96,18 @@ DEFAULT_SKILLS = {
 }
 
 def get_default_skills() -> dict:
-    return DEFAULT_SKILLS
+    return copy.deepcopy(DEFAULT_SKILLS)
 # end get_default_skills
 
 def read_json_file(file_path:str) -> dict:
     if not Path(file_path).is_file():
-        with open(file_path, 'w') as file:
+        with open(file_path, 'w', encoding='utf-8') as file:
             json.dump({
             }, file, indent=4)
         # LOGGER.info(f'Created new {file_path} file.')
         return {}
     else:
-        with open(file_path, 'r') as file:
+        with open(file_path, 'r', encoding='utf-8') as file:
             # LOGGER.info(f'Loaded {file_path} file.')
             return json.load(file)
 # end read_json_file
