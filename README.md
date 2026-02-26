@@ -11,8 +11,10 @@ A personalized discord bot made using the discord 2.6.4 library alongside the mc
 5. You should now be able to interact with the bot in discord channels. Try the '/command'
 
 #### Todo:
-- Fix connection error with pz server that appears after running for a while
-- Fix connection error with sftp server that appears after running for a while
+- Modify !sync to be /sync an ephermal
+- Fix connection error with pz server that appears after running for a while (Pending Completeion)
+- Fix connection error with sftp server that appears after running for a while (Pending Completeion)
+- Remove old/unused code and comments
 - Move poll_players to a separate thread
 - Move commands to a Cog class
 - Move bot to a Bot class
