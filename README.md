@@ -15,6 +15,7 @@ A personalized discord bot made using the discord 2.6.4 library alongside the mc
 - Fix connection error with rcon pz server that appears after running for a while (Pending Completeion)
 - Fix connection error with sftp server that appears after running for a while (Pending Completeion)
 - Remove old/unused code and comments
+- Modify agent_player_data's poll_player_data function to only attempt to copy files that are different than what is stored locally (compare by byte size?)
 - Move poll_players to a separate thread
 - Move commands to a Cog class
 - Move bot to a Bot class
