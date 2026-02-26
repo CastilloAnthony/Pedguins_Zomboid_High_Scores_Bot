@@ -16,9 +16,9 @@ def read_connection_settings(file_path = './settings_connection.json') -> dict:
                 "SFTP_USER" : "username.ID.etc",
                 "SFTP_PASS" : "",
                 "LOG_DIR" : "/path/to/logs/",
-                "POLLING_RATE" : 1,
-                "SFTP_PLAYER_DATA_PATH" : "./cache/Lua/PedguinsHighScoresCollector",
-                "LOCAL_PLAYER_DATA_PATH" : "./PedguinsHighScoresCollector",
+                "POLLING_RATE" : 5,
+                "SFTP_PLAYER_DATA_PATH" : "./cache/Lua/PlayerCharacterDataCollector",
+                "LOCAL_PLAYER_DATA_PATH" : "./PlayerCharacterDataCollector",
                 "LOCAL_PERK_LOG_PATH" : "./PerkLogs"
             }, file, indent=4)
         LOGGER.info('Created new settings_connection.json file, please fill out missing passwords and/or incorrect and/or missing data.')
