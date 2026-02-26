@@ -11,12 +11,13 @@ A personalized discord bot made using the discord 2.6.4 library alongside the mc
 5. You should now be able to interact with the bot in discord channels. Try the '/command'
 
 #### Todo:
-- Modify !sync to be /sync an ephermal
+- Remove admins from /commands that show top players
 - Fix connection error with rcon pz server that appears after running for a while (Pending Completeion)
 - Fix connection error with sftp server that appears after running for a while (Pending Completeion)
 - Remove old/unused code and comments
 - Modify agent_player_data's poll_player_data function to only attempt to copy files that are different than what is stored locally (compare by byte size?)
 - Move poll_players to a separate thread
+- Modify !sync to be /sync an ephermal
 - Move commands to a Cog class
 - Move bot to a Bot class
 - Implement a truncate pz_perk_log.json feature
