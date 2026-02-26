@@ -20,6 +20,6 @@ A personalized discord bot made using the discord 2.6.4 library alongside the mc
 - Modify !sync to be /sync an ephermal
 - Move commands to a Cog class
 - Move bot to a Bot class
-- Implement a truncate pz_perk_log.json feature
+- Add a /map \[player\] feature to show a link to the b42map.com with the player's x,y,z coords 
 - Remove anomalous player data (ongoing as they appear)
 - Twitch bot to say deaths in twitch chat (very low priority)
