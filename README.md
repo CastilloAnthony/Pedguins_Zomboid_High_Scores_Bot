@@ -12,7 +12,7 @@ A personalized discord bot made using the discord 2.6.4 library alongside the mc
 
 #### Todo:
 - Modify !sync to be /sync an ephermal
-- Fix connection error with pz server that appears after running for a while (Pending Completeion)
+- Fix connection error with rcon pz server that appears after running for a while (Pending Completeion)
 - Fix connection error with sftp server that appears after running for a while (Pending Completeion)
 - Remove old/unused code and comments
 - Move poll_players to a separate thread
