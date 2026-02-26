@@ -834,9 +834,10 @@ async def skill_slash(interaction: discord.Interaction, target:str): #target2:st
 # end skill_slash
 
 # Code for sync command retrieved from https://about.abstractumbra.dev/discord.py/2023/01/29/sync-command-example.html
+# @commands.has_any_role("Mods", "Bot")# Only usable by moderators
 @bot.command()
 @commands.guild_only()
-@commands.has_any_role("Mods", "Bot")# Only usable by moderators
+@commands.check_any(commands.is_owner(), commands.has_permissions(administrator=True))
 async def sync(ctx: commands.Context, guilds: commands.Greedy[discord.Object], spec: Optional[Literal["~", "*", "^"]] = None) -> None:
     await ctx.defer(ephemeral=True)
     LOGGER.info(f'Attempting to sync commands... Please wait.')
