@@ -20,13 +20,16 @@ class Agent_Player_Data():
         self.__settings = read_connection_settings()
         self.__player_data = read_json_file(file_path='./player_data.json') # Reads player_data.json
         self.__level_ups = []
+        self.__level_ups_msgs = []
         self.__deaths = []
+        self.__deaths_msgs = []
+        self.__running = True
         self.merge_dupes()
         self.repair_player_data()
-        # await self.poll_player_data()
+        # self.poll_player_data()
     # end __init__
 
-    async def poll_player_data(self) -> bool:
+    def poll_player_data(self) -> bool:
         """Connects to and copies player_data.json files from the sftp server host
 
         Returns:
@@ -50,7 +53,7 @@ class Agent_Player_Data():
                 if sftp:
                     sftp.close()
                     transport.close()
-                await self.update_player_data()
+                self.update_player_data()
         except:
             error = traceback.format_exc()
             lines = error.split('\n')
@@ -65,7 +68,7 @@ class Agent_Player_Data():
         return True
     # end poll_server
 
-    async def update_player_data(self) -> None:
+    def update_player_data(self) -> None:
         """Imports json files from a specific directory into a local variable and saves an updated player_data.json
         """
         for (dir_path, dir_names, filenames) in os.walk(self.__settings['LOCAL_PLAYER_DATA_PATH']):
@@ -119,6 +122,51 @@ class Agent_Player_Data():
 
         save_json_file(json_dict=self.__player_data, file_path='./player_data.json')
     # end update_player_data
+
+    def generate_level_up_msgs(self) -> None:
+        level_ups = copy.deepcopy(self.__level_ups)
+        self.__level_ups = []
+        skill_emojis = read_json_file('./skill_emojis.json')
+        for player_name, perk, new_level, old_level in level_ups:
+            msg = f"```🎉 {player_name} has leveled up their {perk} to {new_level}! {skill_emojis.get(perk, "")}```"
+            self.__level_ups_msgs.append(msg)
+    # end generate_level_up_msgs
+
+    def generate_death_msgs(self) -> None:
+        deaths = copy.deepcopy(self.__deaths)
+        self.__deaths = []
+        for player_name, hours_survived, zombie_kills, sum_of_perks, highest_skill, skill_level in deaths:
+            # In-game time
+            in_game_days = int(hours_survived // (24))
+            in_game_hours = int(hours_survived)
+            in_game_minutes = int((hours_survived - round(hours_survived)) * 60)
+            if hours_survived >= 1:
+                in_game_str = f"{in_game_days} days {in_game_hours} hours {in_game_minutes} minutes" if in_game_days > 0 else f"{in_game_hours} hours {in_game_minutes} minutes"
+            else:
+                in_game_str = "less than 1 hour"
+            # Real-life time # 1 Full In-Game Day is 1 IRL Hour
+            real_days = int(hours_survived // (24*24)) # 24 Hours is 576 Zomboid Hours
+            real_hours = int(hours_survived // 24) # 1 Hour is 24 Zomboid Hours
+            real_mins = int(hours_survived // (24/60)) # 1/60 Hours is 0.4 Zomboid Hours
+            if real_mins >= 1:
+                real_str = f"{real_days} days {real_hours} hours {real_mins} minutes" if real_days > 0 else f"{real_hours} hours {real_mins} minutes"
+            else:
+                real_str = "less than a minute"
+            skill_emojis = read_json_file('./skill_emojis.json')
+            emoji = skill_emojis.get(highest_skill, '')
+            message = [
+                f' {player_name} has died.',
+                f'Survived in-game: {in_game_str}.',
+                f'Real-life: {real_str}.',
+                f'Zombie Kills: {zombie_kills}.',
+                f'Total Skills: {sum_of_perks}.',
+                f'Highest Skill: {highest_skill} at {skill_level}.',
+            ] # String is formatted all the way to the left, leave it there!
+            # await pz_rcon_agent.say_to_pz_server(' '.join(message))
+            message[0] = '💀 '+message[0]
+            message[5] = emoji+' '+message[5]
+            self.__deaths_msgs.append(f'```{"\n".join(message)}```')
+    # end generate_death_msgs
 
     def repair_player_data(self) -> None:
         """Call AFTER merging dupes. Sets default values for missing data keys
@@ -260,20 +308,40 @@ class Agent_Player_Data():
             return self.__player_data
     # end get_player_data
 
-    def get_level_ups(self) -> list[tuple[str, str, int, int]]:
-        curr_val = copy.deepcopy(self.__level_ups)
-        self.__level_ups = []
+    def get_level_ups_msgs(self) -> list[str]:
+        curr_val = copy.deepcopy(self.__level_ups_msgs)
+        self.__level_ups_msgs = []
         return curr_val
     # end get_level_ups
 
-    def get_deaths(self) -> list[tuple[str, float, int, int, str, int]]:
-        curr_val = copy.deepcopy(self.__deaths)
-        self.__deaths = []
+    def get_deaths_msgs(self) -> list[str]:
+        curr_val = copy.deepcopy(self.__deaths_msgs)
+        self.__deaths_msgs = []
         return curr_val
+    # end get_deaths
+
+    def toggle_running(self) -> None:
+        if self.__running:
+            self.__running = False
+        else:
+            self.__running = True
+    # end toggle_running
+
+    def run_agent(self) -> None:
+        last_poll = time.time()
+        while self.__running:
+            if time.time() - last_poll > self.__settings['POLLING_RATE']:
+                self.poll_player_data()
+                self.generate_level_up_msgs()
+                self.generate_death_msgs()
+                last_poll = time.time()
+        # end while
+    # end run_agent
 # end PerkCollector
 
 if __name__ == '__main__': # For testing purposes
     newAgent = Agent_Player_Data()
-    newAgent.poll_player_data()
-    newAgent.update_player_data()
-    print(newAgent.get_player_data())
+    newAgent.run_agent()
+    # newAgent.poll_player_data()
+    # newAgent.update_player_data()
+    # print(newAgent.get_player_data())

@@ -2,6 +2,7 @@ import time
 import json
 from datetime import datetime
 from pathlib import Path
+import traceback
 import logging
 # from uuid import uuid4
 LOGGER: logging.Logger = logging.getLogger("bot")
@@ -100,16 +101,24 @@ def get_default_skills() -> dict:
 # end get_default_skills
 
 def read_json_file(file_path:str) -> dict:
-    if not Path(file_path).is_file():
-        with open(file_path, 'w', encoding='utf-8') as file:
-            json.dump({
-            }, file, indent=4)
-        # LOGGER.info(f'Created new {file_path} file.')
+    try:
+        if not Path(file_path).is_file():
+            with open(file_path, 'w', encoding='utf-8') as file:
+                json.dump({
+                }, file, indent=4)
+            # LOGGER.info(f'Created new {file_path} file.')
+            return {}
+        else:
+            with open(file_path, 'r', encoding='utf-8') as file:
+                # LOGGER.info(f'Loaded {file_path} file.')
+                return json.load(file)
+    except:
+        error = traceback.format_exc()
+        lines = error.split('\n')
+        print(error)
+        LOGGER.warning(f'There was an error in reading {file_path}')
+        LOGGER.error('Error in agent_player_data.py function poll_player_data')
         return {}
-    else:
-        with open(file_path, 'r', encoding='utf-8') as file:
-            # LOGGER.info(f'Loaded {file_path} file.')
-            return json.load(file)
 # end read_json_file
 
 def save_json_file(json_dict:dict, file_path:str) -> None:

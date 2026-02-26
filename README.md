@@ -13,7 +13,9 @@ A personalized discord bot made using the discord 2.6.4 library alongside the mc
 #### Todo:
 - Fix connection error with pz server that appears after running for a while
 - Fix connection error with sftp server that appears after running for a while
-- Remove perk log collection and management
+- Move poll_players to a separate thread
+- Move commands to a Cog class
+- Move bot to a Bot class
 - Implement a truncate pz_perk_log.json feature
 - Remove anomalous player data (ongoing as they appear)
 - Twitch bot to say deaths in twitch chat (very low priority)
