@@ -11,14 +11,12 @@ A personalized discord bot made using the discord 2.6.4 library alongside the mc
 5. You should now be able to interact with the bot in discord channels. Try the '/command'
 
 #### Todo (High priority at top, low priority at bottom):
-- Fix math in determining Survived in-game time and Real-life time for death messages
+- Have the bot's login messages appear in-game as well as in discord
 - Remove admins from /commands that show top players (Requires modifying the mod or keeping a list of admins in a file somewhere)
-- Remove old/unused code and comments
 - Modify agent_player_data's poll_player_data function to only attempt to copy files that are different than what is stored locally (compare by byte size?)
-- Fix connection error with rcon pz server that appears after running for a while (Pending Completeion)
-- Fix connection error with sftp server that appears after running for a while (Pending Completeion)
 - Move poll_players to a separate thread
 - Modify !sync to be /sync an ephermal
+- Remove old/unused code and comments
 - Move commands to a Cog class
 - Move bot to a Bot class
 - Add a /map \[player\] feature to show a link to the b42map.com with the player's x,y,z coords 
