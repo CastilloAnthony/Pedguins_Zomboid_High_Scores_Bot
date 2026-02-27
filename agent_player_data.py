@@ -137,17 +137,17 @@ class Agent_Player_Data():
         self.__deaths = []
         for player_name, hours_survived, zombie_kills, sum_of_perks, highest_skill, skill_level in deaths:
             # In-game time
-            in_game_days = int(hours_survived // (24))
-            in_game_hours = int(hours_survived)
-            in_game_minutes = int((hours_survived - round(hours_survived)) * 60)
+            in_game_days = int(hours_survived // 24) # 24 Hours in a Day
+            in_game_hours = int(hours_survived % 24) # The remainder of the days calculations
+            in_game_minutes = int((hours_survived - int(hours_survived)) * 60) # The decimal as a percentage of 60 minutes
             if hours_survived >= 1:
                 in_game_str = f"{in_game_days} days {in_game_hours} hours {in_game_minutes} minutes" if in_game_days > 0 else f"{in_game_hours} hours {in_game_minutes} minutes"
             else:
                 in_game_str = "less than 1 hour"
-            # Real-life time # 1 Full In-Game Day is 1 IRL Hour
+            # Real-life time # 24 Hours In-Game is 1 IRL Hour
             real_days = int(hours_survived // (24*24)) # 24 Hours is 576 Zomboid Hours
-            real_hours = int(hours_survived // 24) # 1 Hour is 24 Zomboid Hours
-            real_mins = int(hours_survived // (24/60)) # 1/60 Hours is 0.4 Zomboid Hours
+            real_hours = int((hours_survived % (24*24)) // 24) # 1 Hour is 24 Zomboid Hours
+            real_mins = int(((hours_survived % (24*24)) % 24) // (24/60)) # 1/60 Hours is 0.4 Zomboid Hours
             if real_mins >= 1:
                 real_str = f"{real_days} days {real_hours} hours {real_mins} minutes" if real_days > 0 else f"{real_hours} hours {real_mins} minutes"
             else:
