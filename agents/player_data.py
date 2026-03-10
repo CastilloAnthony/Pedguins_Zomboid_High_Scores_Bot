@@ -24,6 +24,8 @@ class Agent_Player_Data():
         self.__deaths = []
         self.__deaths_msgs = []
         self.__running = True
+        self.__dynamic_delay = 0
+        self.__max_delay = 60
         self.merge_dupes()
         self.repair_player_data()
         # self.poll_player_data()
@@ -54,12 +56,19 @@ class Agent_Player_Data():
                     sftp.close()
                     transport.close()
                 self.update_player_data()
+            if self.__dynamic_delay >= 5: # Decrement dynamic delay if we had a successful interaction with the server
+                self.__dynamic_delay -= 5
+                if self.__dynamic_delay != 0:
+                    LOGGER.info(f'agent_player_data delay now set to {self.__settings['POLLING_RATE'] + self.__dynamic_delay}s')
         except:
             error = traceback.format_exc()
             lines = error.split('\n')
             print(error)
             LOGGER.error('Can\'t reach Bisect Hosting: '+str(lines[-1]))
             LOGGER.error('Error in agent_player_data.py function poll_player_data')
+            if self.__dynamic_delay < (self.__max_delay - self.__settings['POLLING_RATE']): # Increment dynamic delay if there was an error in interacting with the server
+                self.__dynamic_delay += 5
+                LOGGER.info(f'agent_player_data delay now set to {self.__settings['POLLING_RATE'] + self.__dynamic_delay}s')
             return False
         finally:
             if sftp:
@@ -74,52 +83,57 @@ class Agent_Player_Data():
         for (dir_path, dir_names, filenames) in os.walk(self.__settings['LOCAL_PLAYER_DATA_PATH']):
             for filename in filenames:
                 local_file_path = os.path.join(dir_path, filename)
-                player_data = read_json_file(local_file_path)
-                if not player_data['username'].isnumeric():
-                    if player_data['username'].lower() in self.__player_data:
-                        if 'totalPlayTime' in self.__player_data[player_data['username'].lower()]:
-                            player_data['totalPlayTime'] = self.__player_data[player_data['username'].lower()]['totalPlayTime']
-                        else:
-                            player_data['totalPlayTime'] = 0
+                if os.path.getsize(local_file_path) != 0: # Ensures file is not empty
+                    player_data = read_json_file(local_file_path)
+                    if player_data: # Ensures json data is not empty
+                        if not player_data['username'].isnumeric():
+                            if player_data['username'].lower() in self.__player_data:
+                                if 'totalPlayTime' in self.__player_data[player_data['username'].lower()]:
+                                    player_data['totalPlayTime'] = self.__player_data[player_data['username'].lower()]['totalPlayTime']
+                                else:
+                                    player_data['totalPlayTime'] = 0
 
-                        if 'lastLogin' in self.__player_data[player_data['username'].lower()]:
-                            player_data['lastLogin'] = self.__player_data[player_data['username'].lower()]['lastLogin']
-                        else:
-                            player_data['lastLogin'] = time.time()
+                                if 'lastLogin' in self.__player_data[player_data['username'].lower()]:
+                                    player_data['lastLogin'] = self.__player_data[player_data['username'].lower()]['lastLogin']
+                                else:
+                                    player_data['lastLogin'] = time.time()
 
-                        if 'lastPoll' in self.__player_data[player_data['username'].lower()]:
-                            player_data['lastPoll'] = self.__player_data[player_data['username'].lower()]['lastPoll']
-                        else:
-                            player_data['lastPoll'] = time.time()
+                                if 'lastPoll' in self.__player_data[player_data['username'].lower()]:
+                                    player_data['lastPoll'] = self.__player_data[player_data['username'].lower()]['lastPoll']
+                                else:
+                                    player_data['lastPoll'] = time.time()
 
-                        if player_data['is_alive'] == self.__player_data[player_data['username'].lower()]['is_alive']: # Ensures that player is still alive and not a new character
-                            for perk in player_data['perks']:
-                                if player_data['perks'][perk] == self.__player_data[player_data['username'].lower()]['perks'][perk]+1: # Level Up Detection
-                                    self.__level_ups.append((
-                                        player_data['username'], # Username
-                                        perk, # Name of Perk
-                                        player_data['perks'][perk], # New level of perk
-                                        self.__player_data[player_data['username'].lower()]['perks'][perk] # Player's previous perk level
+                                if player_data['is_alive'] == self.__player_data[player_data['username'].lower()]['is_alive']: # Ensures that player is still alive and not a new character
+                                    for perk in player_data['perks']:
+                                        if player_data['perks'][perk] == self.__player_data[player_data['username'].lower()]['perks'][perk]+1: # Level Up Detection
+                                            self.__level_ups.append((
+                                                player_data['username'], # Username
+                                                perk, # Name of Perk
+                                                player_data['perks'][perk], # New level of perk
+                                                self.__player_data[player_data['username'].lower()]['perks'][perk] # Player's previous perk level
+                                                ))
+
+                                if player_data['is_alive'] != self.__player_data[player_data['username'].lower()]['is_alive'] and player_data['is_alive'] != True: # Check for deaths, Exclue new character
+                                    perks_exclude_fitness_strength = {perk: level for perk, level in player_data['perks'].items() if perk not in ['Fitness', 'Strength']}
+                                    self.__deaths.append((
+                                        player_data['username'], 
+                                        player_data['hours_survived'], 
+                                        player_data['zombie_kills'], 
+                                        sum(player_data['perks'].values()), 
+                                        max(perks_exclude_fitness_strength,key=perks_exclude_fitness_strength.get), 
+                                        player_data['perks'][max(perks_exclude_fitness_strength,key=perks_exclude_fitness_strength.get)],
                                         ))
 
-                        if player_data['is_alive'] != self.__player_data[player_data['username'].lower()]['is_alive'] and player_data['is_alive'] != True: # Check for deaths, Exclue new character
-                            perks_exclude_fitness_strength = {perk: level for perk, level in player_data['perks'].items() if perk not in ['Fitness', 'Strength']}
-                            self.__deaths.append((
-                                player_data['username'], 
-                                player_data['hours_survived'], 
-                                player_data['zombie_kills'], 
-                                sum(player_data['perks'].values()), 
-                                max(perks_exclude_fitness_strength,key=perks_exclude_fitness_strength.get), 
-                                player_data['perks'][max(perks_exclude_fitness_strength,key=perks_exclude_fitness_strength.get)],
-                                ))
-
-                        self.__player_data[player_data['username'].lower()] = player_data
+                                self.__player_data[player_data['username'].lower()] = player_data
+                            else:
+                                player_data['totalPlayTime'] = 0
+                                player_data['lastLogin'] = time.time()
+                                player_data['lastPoll'] = time.time()
+                                self.__player_data[player_data['username'].lower()] = player_data
                     else:
-                        player_data['totalPlayTime'] = 0
-                        player_data['lastLogin'] = time.time()
-                        player_data['lastPoll'] = time.time()
-                        self.__player_data[player_data['username'].lower()] = player_data 
-
+                        LOGGER.info(f'Player data json file is empty: {filename}')
+                else:
+                    LOGGER.info(f'Player data file is empty: {filename}')
         save_json_file(json_dict=self.__player_data, file_path='./player_data.json')
     # end update_player_data
 
@@ -330,7 +344,7 @@ class Agent_Player_Data():
     def run_agent(self) -> None:
         last_poll = time.time()
         while self.__running:
-            if time.time() - last_poll > self.__settings['POLLING_RATE']:
+            if (time.time() - last_poll) > (self.__settings['POLLING_RATE'] + self.__dynamic_delay):
                 self.poll_player_data()
                 self.generate_level_up_msgs()
                 self.generate_death_msgs()

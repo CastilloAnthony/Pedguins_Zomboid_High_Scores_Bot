@@ -19,6 +19,8 @@ class Agent_PZ_RCON():
         self.__server_status = False
         self.__online_players_msgs = []
         self.__first_check = False
+        self.__dynamic_delay = 0
+        self.__max_delay = 60
         # await self.poll_pz_server()
     # end __init__
 
@@ -39,15 +41,22 @@ class Agent_PZ_RCON():
                         # self.generate_player_connection_msgs(new_list)
                     if not self.__first_check:
                         self.__first_check = True
+                    if self.__dynamic_delay >= 5: # Decrement dynamic delay if we had a successful interaction with the server
+                        self.__dynamic_delay -= 5
+                        if self.__dynamic_delay != 0:
+                            LOGGER.info(f'agent_pz_rcon delay now set to {self.__settings['POLLING_RATE'] + self.__dynamic_delay}s')
         except Exception:
             if self.__server_status:
                 self.__server_status = False
             self.__online_players = set()
             error = traceback.format_exc()
             lines = error.split('\n')
-            print(error)
-            LOGGER.error('Can\'t reach Project Zomboid Server: '+str(lines[-1]))
+            # print(error)
+            LOGGER.error('Can\'t reach Project Zomboid Server: '+str(lines[-2]))
             LOGGER.error('Error in agent_pz_rcon.py function poll_pz_server')
+            if self.__dynamic_delay < (self.__max_delay - self.__settings['POLLING_RATE']): # Increment dynamic delay if there was an error in interacting with the server
+                self.__dynamic_delay += 5
+                LOGGER.info(f'agent_pz_rcon delay now set to {self.__settings['POLLING_RATE'] + self.__dynamic_delay}s')
             return
     # end poll_pz_server
 
@@ -130,7 +139,7 @@ class Agent_PZ_RCON():
     def run_agent(self) -> None:
         last_poll = 0 # We want this to retrieve player count immediately
         while self.__running:
-            if time.time() - last_poll > self.__settings['POLLING_RATE']:
+            if (time.time() - last_poll) > (self.__settings['POLLING_RATE'] + self.__dynamic_delay):
                 self.poll_pz_server()
                 last_poll = time.time()
         # end while

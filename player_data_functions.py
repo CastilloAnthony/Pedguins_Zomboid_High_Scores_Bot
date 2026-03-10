@@ -116,8 +116,8 @@ def read_json_file(file_path:str) -> dict:
         error = traceback.format_exc()
         lines = error.split('\n')
         print(error)
-        LOGGER.warning(f'There was an error in reading {file_path}')
-        LOGGER.error('Error in agent_player_data.py function poll_player_data')
+        LOGGER.error(f'There was an error in reading {file_path}')
+        LOGGER.error('Error in player_data_functions.py function read_json_file')
         return {}
 # end read_json_file
 
@@ -128,164 +128,162 @@ def save_json_file(json_dict:dict, file_path:str) -> None:
         return
 # end save_json_file
 
-def parse_hours_survived(text:str) -> int:
-    count = 0
-    for c in reversed(text):
-        if c == ' ':
-            break
-        else:
-            count -= 1
-    return int(text[len(text)+count:])
-# end parse_hours_survived
-
-def parse_skills(skills:str) -> dict:
-    newList = skills.split(', ')
-    newDict = {}
-    for i in newList:
-        count = 0
-        for c in i:
-            if c == '=':
-                newDict[i[:count]] = int(i[count+1:])
-            count += 1
-    return newDict
-# end parse_skills
-
-def log_parser(logLine:str) -> dict: # Returns a dictionary of the log message broken down into its respective parts. Three different types can be had. 
-    if '(perform)' in logLine:
-        logLine= logLine.replace('(perform)', '')
-    elif '(stop)' in logLine:
-        logLine = logLine.replace('(stop)', '')
-    newList = (logLine[:23]+logLine[24:-3]).strip('[]').split('][') # Remove whitespace between timestamp and user_id, outer brackets, and split into separate keys. 
-    newList[2] = newList[2].lower()
-    if newList[4] == 'Level Changed':
-        return {
-            'type' : 'levelUp',
-            # 'uuid' : uuid4(),
-            # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
-            'timestamp' : newList[0],
-            # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
-            'user_id' : newList[1],
-            'username' : newList[2],
-            'coordinates' : newList[3].split(','),
-            'status' : newList[4],
-            'skill' : newList[5],
-            'level' : int(newList[6]),
-            'hoursSurvived' : parse_hours_survived(newList[7]),
-        }
-    elif newList[4] == 'Login': # Can it output 'Created Player 2' or 3 or 4???
-        return {
-            'type' : 'login',
-            # 'uuid' : uuid4(),
-            # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
-            'timestamp' : newList[0],
-            # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
-            'user_id' : newList[1],
-            'username' : newList[2],
-            'coordinates' : newList[3].split(','),
-            'status' : newList[4],
-            'hoursSurvived' : parse_hours_survived(newList[5]),
-        }
-    elif newList[4] == 'Died': # Can it output 'Created Player 2' or 3 or 4???
-        return {
-            'type' : 'died',
-            # 'uuid' : uuid4(),
-            # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
-            'timestamp' : newList[0],
-            # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
-            'user_id' : newList[1],
-            'username' : newList[2],
-            'coordinates' : newList[3].split(','),
-            'status' : newList[4],
-            'hoursSurvived' : parse_hours_survived(newList[5]),
-        }
-    elif 'Created Player' in newList[4]: # 'Created Player 1' and/or 'Created Player n'
-        return {
-            'type' : 'creation',
-            # 'uuid' : uuid4(),
-            # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
-            'timestamp' : newList[0],
-            # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
-            'user_id' : newList[1],
-            'username' : newList[2],
-            'coordinates' : newList[3].split(','),
-            'status' : newList[4],
-            'hoursSurvived' : parse_hours_survived(newList[5]),
-        }
-    elif newList[4] == 'WriteSkillRecoveryJournal START':
-        return {
-            'type' : 'skillJournal',
-            # 'uuid' : uuid4(),
-            # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
-            'timestamp' : newList[0],
-            # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
-            'user_id' : newList[1],
-            'username' : newList[2],
-            'coordinates' : newList[3].split(','),
-            'status' : newList[4],
-        }
-    elif newList[4] == 'WriteSkillRecoveryJournal STOP' or newList[4] == 'WriteSkillRecoveryJournal  STOP': # Why are there two different types for the same thing in the _PerksLog.txt?
-        return {
-            'type' : 'skillJournal',
-            # 'uuid' : uuid4(),
-            # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
-            'timestamp' : newList[0],
-            # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
-            'user_id' : newList[1],
-            'username' : newList[2],
-            'coordinates' : newList[3].split(','),
-            'status' : newList[4],
-        }
-    elif newList[4] == 'ReadSkillRecoveryJournal START':
-        return {
-            'type' : 'skillJournal',
-            # 'uuid' : uuid4(),
-            # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
-            'timestamp' : newList[0],
-            # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
-            'user_id' : newList[1],
-            'username' : newList[2],
-            'coordinates' : newList[3].split(','),
-            'status' : newList[4],
-        }
-    elif newList[4] == 'ReadSkillRecoveryJournal  STOP' or newList[4] == 'ReadSkillRecoveryJournal STOP': # Why are there two different types for the same thing in the _PerksLog.txt?
-        return {
-            'type' : 'skillJournal',
-            # 'uuid' : uuid4(),
-            # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
-            'timestamp' : newList[0],
-            # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
-            'user_id' : newList[1],
-            'username' : newList[2],
-            'coordinates' : newList[3].split(','),
-            'status' : newList[4],
-        }
-    elif 'Fitness' in newList[4] and 'Strength' in newList[4]: # Skills
-        return {
-            'type' : 'skills',
-            # 'uuid' : uuid4(),
-            # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
-            'timestamp' : newList[0],
-            # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
-            'user_id' : newList[1],
-            'username' : newList[2],
-            'coordinates' : newList[3].split(','),
-            'skills' : parse_skills(newList[4]),
-            'hoursSurvived' : parse_hours_survived(newList[5]),
-        }
-    else:
-        data = {
-            'type' : 'unhandled',
-            'timestamp' : newList[0],
-            'allData' : newList
-        }
-        LOGGER.warning(f'An unhandled log message has been detected {data}')
-        return data
-# end logParser
-
-
 
 ### DEPREICATED FUNCTIONS BELOW
 
+# def parse_hours_survived(text:str) -> int:
+#     count = 0
+#     for c in reversed(text):
+#         if c == ' ':
+#             break
+#         else:
+#             count -= 1
+#     return int(text[len(text)+count:])
+# # end parse_hours_survived
+
+# def parse_skills(skills:str) -> dict:
+#     newList = skills.split(', ')
+#     newDict = {}
+#     for i in newList:
+#         count = 0
+#         for c in i:
+#             if c == '=':
+#                 newDict[i[:count]] = int(i[count+1:])
+#             count += 1
+#     return newDict
+# # end parse_skills
+
+# def log_parser(logLine:str) -> dict: # Returns a dictionary of the log message broken down into its respective parts. Three different types can be had. 
+#     if '(perform)' in logLine:
+#         logLine= logLine.replace('(perform)', '')
+#     elif '(stop)' in logLine:
+#         logLine = logLine.replace('(stop)', '')
+#     newList = (logLine[:23]+logLine[24:-3]).strip('[]').split('][') # Remove whitespace between timestamp and user_id, outer brackets, and split into separate keys. 
+#     newList[2] = newList[2].lower()
+#     if newList[4] == 'Level Changed':
+#         return {
+#             'type' : 'levelUp',
+#             # 'uuid' : uuid4(),
+#             # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
+#             'timestamp' : newList[0],
+#             # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
+#             'user_id' : newList[1],
+#             'username' : newList[2],
+#             'coordinates' : newList[3].split(','),
+#             'status' : newList[4],
+#             'skill' : newList[5],
+#             'level' : int(newList[6]),
+#             'hoursSurvived' : parse_hours_survived(newList[7]),
+#         }
+#     elif newList[4] == 'Login': # Can it output 'Created Player 2' or 3 or 4???
+#         return {
+#             'type' : 'login',
+#             # 'uuid' : uuid4(),
+#             # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
+#             'timestamp' : newList[0],
+#             # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
+#             'user_id' : newList[1],
+#             'username' : newList[2],
+#             'coordinates' : newList[3].split(','),
+#             'status' : newList[4],
+#             'hoursSurvived' : parse_hours_survived(newList[5]),
+#         }
+#     elif newList[4] == 'Died': # Can it output 'Created Player 2' or 3 or 4???
+#         return {
+#             'type' : 'died',
+#             # 'uuid' : uuid4(),
+#             # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
+#             'timestamp' : newList[0],
+#             # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
+#             'user_id' : newList[1],
+#             'username' : newList[2],
+#             'coordinates' : newList[3].split(','),
+#             'status' : newList[4],
+#             'hoursSurvived' : parse_hours_survived(newList[5]),
+#         }
+#     elif 'Created Player' in newList[4]: # 'Created Player 1' and/or 'Created Player n'
+#         return {
+#             'type' : 'creation',
+#             # 'uuid' : uuid4(),
+#             # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
+#             'timestamp' : newList[0],
+#             # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
+#             'user_id' : newList[1],
+#             'username' : newList[2],
+#             'coordinates' : newList[3].split(','),
+#             'status' : newList[4],
+#             'hoursSurvived' : parse_hours_survived(newList[5]),
+#         }
+#     elif newList[4] == 'WriteSkillRecoveryJournal START':
+#         return {
+#             'type' : 'skillJournal',
+#             # 'uuid' : uuid4(),
+#             # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
+#             'timestamp' : newList[0],
+#             # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
+#             'user_id' : newList[1],
+#             'username' : newList[2],
+#             'coordinates' : newList[3].split(','),
+#             'status' : newList[4],
+#         }
+#     elif newList[4] == 'WriteSkillRecoveryJournal STOP' or newList[4] == 'WriteSkillRecoveryJournal  STOP': # Why are there two different types for the same thing in the _PerksLog.txt?
+#         return {
+#             'type' : 'skillJournal',
+#             # 'uuid' : uuid4(),
+#             # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
+#             'timestamp' : newList[0],
+#             # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
+#             'user_id' : newList[1],
+#             'username' : newList[2],
+#             'coordinates' : newList[3].split(','),
+#             'status' : newList[4],
+#         }
+#     elif newList[4] == 'ReadSkillRecoveryJournal START':
+#         return {
+#             'type' : 'skillJournal',
+#             # 'uuid' : uuid4(),
+#             # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
+#             'timestamp' : newList[0],
+#             # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
+#             'user_id' : newList[1],
+#             'username' : newList[2],
+#             'coordinates' : newList[3].split(','),
+#             'status' : newList[4],
+#         }
+#     elif newList[4] == 'ReadSkillRecoveryJournal  STOP' or newList[4] == 'ReadSkillRecoveryJournal STOP': # Why are there two different types for the same thing in the _PerksLog.txt?
+#         return {
+#             'type' : 'skillJournal',
+#             # 'uuid' : uuid4(),
+#             # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
+#             'timestamp' : newList[0],
+#             # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
+#             'user_id' : newList[1],
+#             'username' : newList[2],
+#             'coordinates' : newList[3].split(','),
+#             'status' : newList[4],
+#         }
+#     elif 'Fitness' in newList[4] and 'Strength' in newList[4]: # Skills
+#         return {
+#             'type' : 'skills',
+#             # 'uuid' : uuid4(),
+#             # 'timestamp' : datetime.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'),
+#             'timestamp' : newList[0],
+#             # 'timestamp' : int(time.mktime(time.strptime(newList[0], '%d-%m-%y %H:%M:%S.%f'))),
+#             'user_id' : newList[1],
+#             'username' : newList[2],
+#             'coordinates' : newList[3].split(','),
+#             'skills' : parse_skills(newList[4]),
+#             'hoursSurvived' : parse_hours_survived(newList[5]),
+#         }
+#     else:
+#         data = {
+#             'type' : 'unhandled',
+#             'timestamp' : newList[0],
+#             'allData' : newList
+#         }
+#         LOGGER.warning(f'An unhandled log message has been detected {data}')
+#         return data
+# # end logParser
 
 # # Player_data Format:
 # def create_default_player_data(username:str, user_id:str = 'None') -> dict:

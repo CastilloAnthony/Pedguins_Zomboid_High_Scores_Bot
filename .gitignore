@@ -10,7 +10,6 @@ PedguinsHighScoresCollector/
 PlayerCharacterDataCollector/
 !skill_aliases.json
 !skill_emojis.json
-bot_cog_pz.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
