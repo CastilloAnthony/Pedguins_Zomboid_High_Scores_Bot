@@ -156,7 +156,6 @@ class Project_Zomboid_Commands(discord.ext.commands.Cog):
         skill_emojis = read_json_file('./skill_emojis.json')
         lines = []
         if target_lower == 'all' or target_lower == 'total': # All Players
-            print('All players', target)
             combined = []
             all_player_data = self.__player_data_agent.get_player_data()
             for player_data in all_player_data:
@@ -167,21 +166,18 @@ class Project_Zomboid_Commands(discord.ext.commands.Cog):
                 lines.append(f'{status} - {player[0]}: {player[1]}')
             await interaction.followup.send(f"```📊 - Top 10 Players by Total Skills:\n" + "\n".join(lines) + "```")
         elif target_lower in self.__player_data_agent.get_player_data(): # Player specific
-            print('Player Specific', target)
             player_data = self.__player_data_agent.get_player_data()[target_lower]
             skills = []
             for perk in sorted(player_data['perks']):
                 if player_data['perks'][perk] > 0:
                     skills.append((perk, player_data['perks'][perk]))
             skills = sorted(skills, key=lambda x: x[1], reverse=True)
-            print(skills)
             for tuple in skills:
                 emoji = skill_emojis.get(tuple[0], '')
                 lines.append(f'{emoji} {tuple[0]}: {tuple[1]}')
             status = "🟢" if target_lower in [pl.lower() for pl in self.__pz_rcon_agent.get_online_players()] else "🔴"
             await interaction.followup.send(f"```{status} - {player_data['username']}'s Skills (Total: {sum(tuple[1] for tuple in skills)})\n" + "\n".join(lines) + "```")
         elif target_lower in skill_aliases: # Skill alias specific
-            print('Skill Alias Specific', target)
             skill_alias = skill_aliases[target_lower]
             emoji = skill_emojis.get(skill_alias, '')
             combined = []
@@ -193,17 +189,18 @@ class Project_Zomboid_Commands(discord.ext.commands.Cog):
                 status = "🟢" if tuple[0].lower() in [player.lower() for player in self.__pz_rcon_agent.get_online_players()] else "🔴"
                 lines.append(f'{status} - {tuple[0]}: {tuple[1]}')
             await interaction.followup.send(f"```{emoji} - Top 10 Players by {skill_alias}:\n" + "\n".join(lines) + "```")
-        elif target in get_default_skills(): # Skill specific
-            print('Skill Specific', target)
-            emoji = skill_emojis.get(target, '')
+        elif target.capitalize() in get_default_skills(): # Skill specific
+            target_capitalize = target.capitalize()
+            emoji = skill_emojis.get(target_capitalize, '')
             combined = []
-            for player_data in self.__player_data_agent.get_player_data():
-                combined.append((player_data['username'], player_data['perks'][target],))
-            combined = sorted(combined, key=lambda x: x[1])[:10]
+            all_player_data = self.__player_data_agent.get_player_data()
+            for player_data in all_player_data:
+                combined.append((player_data, all_player_data[player_data]['perks'][target_capitalize],))
+            combined = sorted(combined, key=lambda x: x[1], reverse=True)[:10]
             for tuple in combined:
                 status = "🟢" if tuple[0].lower() in [player.lower() for player in self.__pz_rcon_agent.get_online_players()] else "🔴"
                 lines.append(f'{status} - {tuple[0]}: {tuple[1]}')
-            await interaction.followup.send(f"```{emoji} - Top 10 Players by {target.capitalize()}:\n" + "\n".join(lines) + "```")
+            await interaction.followup.send(f"```{emoji} - Top 10 Players by {target_capitalize}:\n" + "\n".join(lines) + "```")
         else:
             await interaction.followup.send(f"```Could not find player or skill with name {target}```")
     # end skill_slash
