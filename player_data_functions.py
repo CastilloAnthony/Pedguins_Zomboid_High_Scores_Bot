@@ -4,6 +4,8 @@ from datetime import datetime
 from pathlib import Path
 import traceback
 import logging
+import shutil
+import datetime
 # from uuid import uuid4
 LOGGER: logging.Logger = logging.getLogger("bot")
 import copy
@@ -116,8 +118,15 @@ def read_json_file(file_path:str) -> dict:
         error = traceback.format_exc()
         lines = error.split('\n')
         print(error)
-        LOGGER.error(f'There was an error in reading {file_path}')
+        errorous_dir = './errorousJsons/'
+        datestamp_json = str(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))+'.json'
+        LOGGER.error(f'There was an error in reading {file_path} saving copy to '+errorous_dir+datestamp_json)
         LOGGER.error('Error in player_data_functions.py function read_json_file')
+        if not Path(errorous_dir).is_dir(): # Creates the Errorous Jsons directory ('./errorousJsons/')
+            Path.mkdir(errorous_dir)
+        shutil.copy(file_path, errorous_dir+datestamp_json)
+        with open(errorous_dir+'0000_journal.log', 'a') as file:
+            file.write(datestamp_json+'\t\t'+file_path+'\n')
         return {}
 # end read_json_file
 
