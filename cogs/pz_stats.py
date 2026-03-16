@@ -5,6 +5,7 @@ from discord.ext import commands
 import time
 import logging
 LOGGER: logging.Logger = logging.getLogger("bot")
+import difflib
 
 # from class_bot import Discord_Bot
 # import class_bot
@@ -64,6 +65,17 @@ class Project_Zomboid_Commands(discord.ext.commands.Cog):
                 h, m, s = int(player_data['totalPlayTime']//3600), int((player_data['totalPlayTime']%3600)//60), int((player_data['totalPlayTime']%3600)%60)
             status = "🟢" if target.lower() in self.__pz_rcon_agent.get_online_players() else "🔴"
             await interaction.followup.send(f"```{status} - {target.capitalize()} has played for {h}h {m}m {s}s in total.```")
+        elif len(difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())) > 0: # Get closest match
+            matches = difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())
+            player_data = self.__player_data_agent.get_player_data()[matches[0]]
+            h, m, s = 0, 0, 0
+            if target.lower() in self.__pz_rcon_agent.get_online_players():
+                player_time = player_data['totalPlayTime']+(time.time()-player_data['lastPoll'])
+                h, m, s = int(player_time//3600), int((player_time%3600)//60), int((player_time%3600)%60)
+            else:
+                h, m, s = int(player_data['totalPlayTime']//3600), int((player_data['totalPlayTime']%3600)//60), int((player_data['totalPlayTime']%3600)%60)
+            status = "🟢" if matches[0].lower() in self.__pz_rcon_agent.get_online_players() else "🔴"
+            await interaction.followup.send(f"```{status} - {matches[0].capitalize()} has played for {h}h {m}m {s}s in total.```")
         else:
             await interaction.followup.send(f'```Could not find a player named {target}.```')
     # end time_slash
@@ -89,6 +101,13 @@ class Project_Zomboid_Commands(discord.ext.commands.Cog):
             hours = int(player_data['hours_survived']%24)
             status = "🟢" if target.lower() in self.__pz_rcon_agent.get_online_players() else "🔴"
             await interaction.followup.send(f"```{status} - {target.capitalize()} has survived for {days} days and {hours} hours in-game.```")
+        elif len(difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())) > 0: # Get closest match
+            matches = difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())
+            player_data = self.__player_data_agent.get_player_data()[matches[0]]
+            days = int(player_data['hours_survived']//24)
+            hours = int(player_data['hours_survived']%24)
+            status = "🟢" if matches[0].lower() in self.__pz_rcon_agent.get_online_players() else "🔴"
+            await interaction.followup.send(f"```{status} - {matches[0].capitalize()} has survived for {days} days and {hours} hours in-game.```")
         else:
             await interaction.followup.send(f'```Could not find a player named {target}.```')
     # end survived_slash
@@ -112,9 +131,13 @@ class Project_Zomboid_Commands(discord.ext.commands.Cog):
             await interaction.followup.send(f"```🕒 - Top 10 Current Character by Zombie Kills (Total: {total_zombie_kills}):\n" + "\n".join((lines)) + "```")
         elif target.lower() in self.__player_data_agent.get_player_data(): # A Singlar Player
             player_data = self.__player_data_agent.get_player_data()[target.lower()]
-            zombies = player_data['zombie_kills']
             status = "🟢" if target.lower() in self.__pz_rcon_agent.get_online_players() else "🔴"
-            await interaction.followup.send(f"```{status} - {target.capitalize()} has killed {zombies} zombies.```")
+            await interaction.followup.send(f"```{status} - {target.capitalize()} has killed {player_data['zombie_kills']} zombies.```")
+        elif len(difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())) > 0: # Get closest match
+            matches = difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())
+            player_data = self.__player_data_agent.get_player_data()[matches[0]]
+            status = "🟢" if matches[0].lower() in self.__pz_rcon_agent.get_online_players() else "🔴"
+            await interaction.followup.send(f"```{status} - {matches[0].capitalize()} has killed {player_data['zombie_kills']} zombies.```")
         else:
             await interaction.followup.send(f'```Could not find a player named {target}.```')
     # end zombies_slash
@@ -201,9 +224,48 @@ class Project_Zomboid_Commands(discord.ext.commands.Cog):
                 status = "🟢" if tuple[0].lower() in [player.lower() for player in self.__pz_rcon_agent.get_online_players()] else "🔴"
                 lines.append(f'{status} - {tuple[0]}: {tuple[1]}')
             await interaction.followup.send(f"```{emoji} - Top 10 Players by {target_capitalize}:\n" + "\n".join(lines) + "```")
+        elif len(difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())) > 0: # Get closest match of players
+            matches = difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())
+            player_data = self.__player_data_agent.get_player_data()[matches[0]]
+            skills = []
+            for perk in sorted(player_data['perks']):
+                if player_data['perks'][perk] > 0:
+                    skills.append((perk, player_data['perks'][perk]))
+            skills = sorted(skills, key=lambda x: x[1], reverse=True)
+            for tuple in skills:
+                emoji = skill_emojis.get(tuple[0], '')
+                lines.append(f'{emoji} {tuple[0]}: {tuple[1]}')
+            status = "🟢" if matches[0] in [pl.lower() for pl in self.__pz_rcon_agent.get_online_players()] else "🔴"
+            await interaction.followup.send(f"```{status} - {player_data['username']}'s Skills (Total: {sum(tuple[1] for tuple in skills)})\n" + "\n".join(lines) + "```")
+        elif len(difflib.get_close_matches(target, get_default_skills().keys())) > 0: # Get closest match of skills
+            matches = difflib.get_close_matches(target, get_default_skills().keys())
+            emoji = skill_emojis.get(matches[0], '')
+            combined = []
+            all_player_data = self.__player_data_agent.get_player_data()
+            for player_data in all_player_data:
+                combined.append((player_data, all_player_data[player_data]['perks'][matches[0]],))
+            combined = sorted(combined, key=lambda x: x[1], reverse=True)[:10]
+            for tuple in combined:
+                status = "🟢" if tuple[0].lower() in [player.lower() for player in self.__pz_rcon_agent.get_online_players()] else "🔴"
+                lines.append(f'{status} - {tuple[0]}: {tuple[1]}')
+            await interaction.followup.send(f"```{emoji} - Top 10 Players by {matches[0]}:\n" + "\n".join(lines) + "```")
         else:
             await interaction.followup.send(f"```Could not find player or skill with name {target}```")
     # end skill_slash
+
+    # @app_commands.command(name="map", description="Show a player's last known location on b42map.com")
+    # @app_commands.describe(target="A player name.")
+    # async def map_slash(self, interaction: discord.Interaction, target:str): #target2:str=None
+    #     await interaction.response.defer(thinking=True)
+    #     target_lower = target.lower()
+    #     if target_lower in self.__player_data_agent.get_player_data():
+    #         url = 'https://b42map.com/?'
+    #         player_data = self.__player_data_agent.get_player_data()[target_lower]
+    #         url += str(player_data['coord_x'])+'x'+str(player_data['coord_y'])
+    #         await interaction.followup.send(f'```{player_data['username']}\'s last known location is```{url}')
+    #     else:
+    #         await interaction.followup.send(f'```Could not find a player with the name of {target}```')
+    # # end map
 
     @app_commands.command(name="commands", description="Show all available commands")
     async def commands_slash(self, interaction: discord.Interaction):    
