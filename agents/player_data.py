@@ -25,7 +25,6 @@ class Agent_Player_Data():
         self.__deaths_msgs = []
         self.__running = True
         self.__dynamic_delay = 0
-        self.__max_delay = 60
         self.merge_dupes()
         self.repair_player_data()
         # self.poll_player_data()
@@ -66,7 +65,7 @@ class Agent_Player_Data():
             print(error)
             LOGGER.error('Can\'t reach Bisect Hosting: '+str(lines[-1]))
             LOGGER.error('Error in agent_player_data.py function poll_player_data')
-            if self.__dynamic_delay < (self.__max_delay - self.__settings['POLLING_RATE']): # Increment dynamic delay if there was an error in interacting with the server
+            if self.__dynamic_delay < (self.__settings['MAX_POLLING_RATE'] - self.__settings['POLLING_RATE']): # Increment dynamic delay if there was an error in interacting with the server
                 self.__dynamic_delay += 5
                 LOGGER.info(f'agent_player_data delay now set to {self.__settings['POLLING_RATE'] + self.__dynamic_delay}s')
             return False
@@ -283,10 +282,15 @@ class Agent_Player_Data():
 
     def update_player_total_play_time(self, username:str) -> bool:
         if username in self.__player_data:
-            self.__player_data[username]['totalPlayTime'] += (time.time() - self.__player_data[username]['lastPoll'])
-            self.__player_data[username]['lastPoll'] = time.time()
-            save_json_file(json_dict=self.__player_data, file_path='./player_data.json')
-            return True
+            if (time.time() - self.__player_data[username]['lastPoll']) < (2*self.__settings['MAX_POLLING_RATE']): # Only increment total play time if time since last poll is less than twice the max polling rate 
+                self.__player_data[username]['totalPlayTime'] += (time.time() - self.__player_data[username]['lastPoll'])
+                self.__player_data[username]['lastPoll'] = time.time()
+                save_json_file(json_dict=self.__player_data, file_path='./player_data.json')
+                return True
+            else: # Do not increment yotal play time, instead set new lastPoll
+                self.__player_data[username]['lastPoll'] = time.time()
+                save_json_file(json_dict=self.__player_data, file_path='./player_data.json')
+                return False
         else:
             return False
     # end add_player_time_played

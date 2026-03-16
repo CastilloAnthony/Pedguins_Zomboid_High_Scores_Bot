@@ -20,7 +20,6 @@ class Agent_PZ_RCON():
         self.__online_players_msgs = []
         self.__first_check = False
         self.__dynamic_delay = 0
-        self.__max_delay = 60
         # await self.poll_pz_server()
     # end __init__
 
@@ -54,7 +53,7 @@ class Agent_PZ_RCON():
             # print(error)
             LOGGER.error('Can\'t reach Project Zomboid Server: '+str(lines[-2]))
             LOGGER.error('Error in agent_pz_rcon.py function poll_pz_server')
-            if self.__dynamic_delay < (self.__max_delay - self.__settings['POLLING_RATE']): # Increment dynamic delay if there was an error in interacting with the server
+            if self.__dynamic_delay < (self.__settings['MAX_POLLING_RATE'] - self.__settings['POLLING_RATE']): # Increment dynamic delay if there was an error in interacting with the server
                 self.__dynamic_delay += 5
                 LOGGER.info(f'agent_pz_rcon delay now set to {self.__settings['POLLING_RATE'] + self.__dynamic_delay}s')
             return
