@@ -14,11 +14,7 @@ A personalized discord bot made using the discord 2.6.4 library alongside the mc
 - Have the bot's login messages appear in-game as well as in discord
 - Remove admins from /commands that show top players (Requires modifying the mod or keeping a list of admins in a file somewhere)
 - Modify agent_player_data's poll_player_data function to only attempt to copy files that are different than what is stored locally (compare by byte size?)
-- Move poll_players to a separate thread
-- Modify !sync to be /sync an ephermal
-- Remove old/unused code and comments
-- Move commands to a Cog class
-- Move bot to a Bot class
-- Add a /map \[player\] feature to show a link to the b42map.com with the player's x,y,z coords 
+- Reimplement data storage technique as database instead of json file
+- Implement pz-to-discord connection (claiming system? ticketing system?)
 - Remove anomalous player data (ongoing as they appear)
-- Twitch bot to say deaths in twitch chat (very low priority)
+- Twitch bot to say deaths in twitch chat (very low priority, and possibly never)

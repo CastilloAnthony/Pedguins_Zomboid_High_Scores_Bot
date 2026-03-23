@@ -261,11 +261,27 @@ class Project_Zomboid_Commands(discord.ext.commands.Cog):
     #     if target_lower in self.__player_data_agent.get_player_data():
     #         url = 'https://b42map.com/?'
     #         player_data = self.__player_data_agent.get_player_data()[target_lower]
-    #         url += str(player_data['coord_x'])+'x'+str(player_data['coord_y'])
-    #         await interaction.followup.send(f'```{player_data['username']}\'s last known location is```{url}')
+    #         url += str(round(player_data['coord_x']))+'x'+str(round(player_data['coord_y']))
+    #         await interaction.followup.send(f'`{player_data['username']}\'s last known location is `{url}')
     #     else:
     #         await interaction.followup.send(f'```Could not find a player with the name of {target}```')
     # # end map
+
+    @app_commands.command(name="position", description="Administrators only; Displays a player's map position.")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.checks.has_permissions(administrator=True)
+    @app_commands.describe(player="Name of a player (i.e., Pedguin)")
+    async def position_slash(self, interaction: discord.Interaction, player:str) -> None:
+        await interaction.response.defer(thinking=True, ephemeral=True)
+        LOGGER.info(f'Position retrieval attempted by {interaction.user.name} with user id {interaction.user.id} and target "{player}"')
+        if len(difflib.get_close_matches(player, self.__player_data_agent.get_player_data().keys())) > 0: # Get closest match of players
+            matches = difflib.get_close_matches(player, self.__player_data_agent.get_player_data().keys())
+            players = self.__player_data_agent.get_player_data()
+            url = 'https://b42map.com/?'+str(round(players[matches[0]]['coord_x']))+'x'+str(round(players[matches[0]]['coord_y']))
+            await interaction.followup.send(f'```{matches[0].capitalize()}\'s last known position:``` {url}')
+        else:
+            await interaction.followup.send(f'```Could not find player named {player}```')
+    # end position_slash
 
     @app_commands.command(name="commands", description="Show all available commands")
     async def commands_slash(self, interaction: discord.Interaction):    

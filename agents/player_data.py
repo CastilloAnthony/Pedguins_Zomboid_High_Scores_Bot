@@ -113,15 +113,18 @@ class Agent_Player_Data():
                                                 ))
 
                                 if player_data['is_alive'] != self.__player_data[player_data['username'].lower()]['is_alive'] and player_data['is_alive'] != True: # Check for deaths, Exclue new character
-                                    perks_exclude_fitness_strength = {perk: level for perk, level in player_data['perks'].items() if perk not in ['Fitness', 'Strength']}
-                                    self.__deaths.append((
-                                        player_data['username'], 
-                                        player_data['hours_survived'], 
-                                        player_data['zombie_kills'], 
-                                        sum(player_data['perks'].values()), 
-                                        max(perks_exclude_fitness_strength,key=perks_exclude_fitness_strength.get), 
-                                        player_data['perks'][max(perks_exclude_fitness_strength,key=perks_exclude_fitness_strength.get)],
-                                        ))
+                                    # perks_exclude_fitness_strength = {perk: level for perk, level in player_data['perks'].items() if perk not in ['Fitness', 'Strength']}
+                                    self.__deaths.append(player_data)
+                                    # self.__deaths.append((
+                                    #     player_data['username'], 
+                                    #     player_data['hours_survived'], 
+                                    #     player_data['zombie_kills'], 
+                                    #     sum(player_data['perks'].values()), 
+                                    #     max(perks_exclude_fitness_strength,key=perks_exclude_fitness_strength.get), 
+                                    #     player_data['perks'][max(perks_exclude_fitness_strength,key=perks_exclude_fitness_strength.get)],
+                                    #     player_data['coord_x'],
+                                    #     player_data['coord_y'],
+                                    #     ))
 
                                 self.__player_data[player_data['username'].lower()] = player_data
                             else:
@@ -148,37 +151,41 @@ class Agent_Player_Data():
     def generate_death_msgs(self) -> None:
         deaths = copy.deepcopy(self.__deaths)
         self.__deaths = []
-        for player_name, hours_survived, zombie_kills, sum_of_perks, highest_skill, skill_level in deaths:
+        # for player_name, hours_survived, zombie_kills, sum_of_perks, highest_skill, skill_level, coord_x, coord_y in deaths:
+        for player_data in deaths:
             # In-game time
-            in_game_days = int(hours_survived // 24) # 24 Hours in a Day
-            in_game_hours = int(hours_survived % 24) # The remainder of the days calculations
-            in_game_minutes = int((hours_survived - int(hours_survived)) * 60) # The decimal as a percentage of 60 minutes
-            if hours_survived >= 1:
+            in_game_days = int(player_data['hours_survived'] // 24) # 24 Hours in a Day
+            in_game_hours = int(player_data['hours_survived'] % 24) # The remainder of the days calculations
+            in_game_minutes = int((player_data['hours_survived'] - int(player_data['hours_survived'])) * 60) # The decimal as a percentage of 60 minutes
+            if player_data['hours_survived'] >= 1:
                 in_game_str = f"{in_game_days} days {in_game_hours} hours {in_game_minutes} minutes" if in_game_days > 0 else f"{in_game_hours} hours {in_game_minutes} minutes"
             else:
                 in_game_str = "less than 1 hour"
             # Real-life time # 24 Hours In-Game is 1 IRL Hour
-            real_days = int(hours_survived // (24*24)) # 24 Hours is 576 Zomboid Hours
-            real_hours = int((hours_survived % (24*24)) // 24) # 1 Hour is 24 Zomboid Hours
-            real_mins = int(((hours_survived % (24*24)) % 24) // (24/60)) # 1/60 Hours is 0.4 Zomboid Hours
+            real_days = int(player_data['hours_survived'] // (24*24)) # 24 Hours is 576 Zomboid Hours
+            real_hours = int((player_data['hours_survived'] % (24*24)) // 24) # 1 Hour is 24 Zomboid Hours
+            real_mins = int(((player_data['hours_survived'] % (24*24)) % 24) // (24/60)) # 1/60 Hours is 0.4 Zomboid Hours
             if real_mins >= 1:
                 real_str = f"{real_days} days {real_hours} hours {real_mins} minutes" if real_days > 0 else f"{real_hours} hours {real_mins} minutes"
             else:
                 real_str = "less than a minute"
             skill_emojis = read_json_file('./skill_emojis.json')
-            emoji = skill_emojis.get(highest_skill, '')
+            perks_exclude_fitness_strength = {perk: level for perk, level in player_data['perks'].items() if perk not in ['Fitness', 'Strength']}
+            emoji = skill_emojis.get(max(perks_exclude_fitness_strength,key=perks_exclude_fitness_strength.get), '')
+            url = 'https://b42map.com/?'+str(round(player_data['coord_x']))+'x'+str(round(player_data['coord_y']))
             message = [
-                f' {player_name} has died.',
+                f' {player_data['username']} has died.',
                 f'Survived in-game: {in_game_str}.',
                 f'Real-life: {real_str}.',
-                f'Zombie Kills: {zombie_kills}.',
-                f'Total Skills: {sum_of_perks}.',
-                f'Highest Skill: {highest_skill} at {skill_level}.',
-            ] # String is formatted all the way to the left, leave it there!
+                f'Zombie Kills: {player_data['zombie_kills']}.',
+                f'Total Skills: {sum(player_data['perks'].values())}.',
+                f'Highest Skill: {max(perks_exclude_fitness_strength,key=perks_exclude_fitness_strength.get)} at {player_data['perks'][max(perks_exclude_fitness_strength,key=perks_exclude_fitness_strength.get)]}.',
+                # f'Locaiton: {url}', # URL needs to be ouside of the code block otherwise it isn't clickable
+            ]
             # await pz_rcon_agent.say_to_pz_server(' '.join(message))
             message[0] = '💀 '+message[0]
             message[5] = emoji+' '+message[5]
-            self.__deaths_msgs.append(f'```{"\n".join(message)}```')
+            self.__deaths_msgs.append(f'```{"\n".join(message)}```Location: {url}') # Location: {url}
     # end generate_death_msgs
 
     def repair_player_data(self) -> None:
