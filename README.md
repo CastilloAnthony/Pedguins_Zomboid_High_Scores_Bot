@@ -12,9 +12,8 @@ A personalized discord bot made using the discord 2.6.4 library alongside the mc
 
 #### Todo (High priority at top, low priority at bottom):
 - Have the bot's login messages appear in-game as well as in discord
-- Remove admins from /commands that show top players (Requires modifying the mod or keeping a list of admins in a file somewhere)
 - Modify agent_player_data's poll_player_data function to only attempt to copy files that are different than what is stored locally (compare by byte size?)
-- Reimplement data storage technique as database instead of json file
-- Implement pz-to-discord connection (claiming system? ticketing system?)
+- Reimplement data storage method as database instead of json file
+- Implement pz-to-discord connection (whitelisting system? claiming system? ticketing system?)
 - Remove anomalous player data (ongoing as they appear)
 - Twitch bot to say deaths in twitch chat (very low priority, and possibly never)

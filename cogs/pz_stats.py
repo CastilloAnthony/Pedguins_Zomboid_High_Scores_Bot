@@ -6,7 +6,7 @@ import time
 import logging
 LOGGER: logging.Logger = logging.getLogger("bot")
 import difflib
-
+from datetime import datetime
 # from class_bot import Discord_Bot
 # import class_bot
 
@@ -36,9 +36,9 @@ class Project_Zomboid_Commands(discord.ext.commands.Cog):
         await interaction.followup.send(f"```🟢 - Players Online (Session Time):\n" + "\n".join(lines) + f"\n\nTotal: {len(self.__pz_rcon_agent.get_online_players())}```")
     # end online_slash
 
-    @app_commands.command(name="time", description="Show total playtime for a player.")
+    @app_commands.command(name="playtime", description="Show total playtime for a player.")
     @app_commands.describe(target="Player name or 'all'")
-    async def time_slash(self, interaction: discord.Interaction, target: str):
+    async def playtime_slash(self, interaction: discord.Interaction, target: str):
         await interaction.response.defer(thinking=True)
         if target.lower() == "all":
             player_times = []
@@ -78,7 +78,7 @@ class Project_Zomboid_Commands(discord.ext.commands.Cog):
             await interaction.followup.send(f"```{status} - {matches[0].capitalize()} has played for {h}h {m}m {s}s in total.```")
         else:
             await interaction.followup.send(f'```Could not find a player named {target}.```')
-    # end time_slash
+    # end playtime_slash
 
     @app_commands.command(name="survived", description="Shows the total time a player's current character has survived for in in-game hours.")
     @app_commands.describe(target="Player name or 'all'")
@@ -142,10 +142,7 @@ class Project_Zomboid_Commands(discord.ext.commands.Cog):
             await interaction.followup.send(f'```Could not find a player named {target}.```')
     # end zombies_slash
 
-    # ------------------- #
-    #    Slash Command    #
-    #   Below Suspended!  #
-    # ------------------- #
+    # # Command suspended for non-pvp server  
     # @app_commands.command(name="survivors", description="Shows a player's total survivor kills.")
     # @app_commands.describe(target="Player name or 'all'")
     # async def survivors_slash(self, interaction: discord.Interaction, target: str):
@@ -253,6 +250,7 @@ class Project_Zomboid_Commands(discord.ext.commands.Cog):
             await interaction.followup.send(f"```Could not find player or skill with name {target}```")
     # end skill_slash
 
+    # # Disabled until a discord-to-pz-username connection can be made
     # @app_commands.command(name="map", description="Show a player's last known location on b42map.com")
     # @app_commands.describe(target="A player name.")
     # async def map_slash(self, interaction: discord.Interaction, target:str): #target2:str=None
@@ -267,6 +265,7 @@ class Project_Zomboid_Commands(discord.ext.commands.Cog):
     #         await interaction.followup.send(f'```Could not find a player with the name of {target}```')
     # # end map
 
+    # Discord Admin Only Command
     @app_commands.command(name="position", description="Administrators only; Displays a player's map position.")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
@@ -275,13 +274,26 @@ class Project_Zomboid_Commands(discord.ext.commands.Cog):
         await interaction.response.defer(thinking=True, ephemeral=True)
         LOGGER.info(f'Position retrieval attempted by {interaction.user.name} with user id {interaction.user.id} and target "{player}"')
         if len(difflib.get_close_matches(player, self.__player_data_agent.get_player_data().keys())) > 0: # Get closest match of players
-            matches = difflib.get_close_matches(player, self.__player_data_agent.get_player_data().keys())
             players = self.__player_data_agent.get_player_data()
+            matches = difflib.get_close_matches(player, players.keys())
             url = 'https://b42map.com/?'+str(round(players[matches[0]]['coord_x']))+'x'+str(round(players[matches[0]]['coord_y']))
             await interaction.followup.send(f'```{matches[0].capitalize()}\'s last known position:``` {url}')
         else:
             await interaction.followup.send(f'```Could not find player named {player}```')
     # end position_slash
+
+    @app_commands.command(name="lastlog", description="Show a player's last login time")
+    @app_commands.describe(player="Player name'.")
+    async def lastlog_slash(self, interaction: discord.Interaction, player:str): #target2:str=None
+        await interaction.response.defer(thinking=True)
+        if len(difflib.get_close_matches(player, self.__player_data_agent.get_player_data().keys())) > 0:
+            matches = difflib.get_close_matches(player, self.__player_data_agent.get_player_data().keys())
+            player_data = self.__player_data_agent.get_player_data()[matches[0]]
+            status = "🟢" if matches[0] in [pl for pl in self.__pz_rcon_agent.get_online_players()] else "🔴"
+            await interaction.followup.send(f'```{status} - {player_data['username']}\'s last login: {datetime.fromtimestamp(round(player_data['lastLogin']))}```')
+        else:
+            await interaction.followup.send(f'```Could not find player named {player}```')
+    # end lastlog_slash
 
     @app_commands.command(name="commands", description="Show all available commands")
     async def commands_slash(self, interaction: discord.Interaction):    
@@ -297,10 +309,27 @@ class Project_Zomboid_Commands(discord.ext.commands.Cog):
             "• `/skill [skill]` — Show top 10 players by a skill.\n"
             "• `/skill [player]` — Show a specific players skills.\n"
             "• `/skill total` — Show top 10 players by total skill levels.\n"
+            "• `/lastlog player` — Show a player's last log in time.\n"
             "• `/commands` — Show this list.",
             ephemeral=True
         )
     # end commands_slash
+
+    # Discord Admin Only Command
+    @app_commands.command(name="admincommands", description="Administrators only; Show all available admin commands")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.checks.has_permissions(administrator=True)
+    async def adminCommands_slash(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_message(
+            "📜 **Available Admin Commands:**\n"
+            "• `/position [player]` — Show the current position of a player.\n"
+            "• `/sync` — Syncs all discord commands.\n"
+            "• `/reload [cog_name]` — Reloads a specific cog (i.e., \"core\" or \"pz_stats\").\n"
+            "• `/close` — Manually stops the bot. (WARNING: Avoid using unless owner).\n"
+            "• `/adminCommands` — Show this list.",
+            ephemeral=True
+        )
+    # end adminCommands_slash
 # end Project_Zomboid_Commands
 
 async def setup(bot:commands.Bot):
