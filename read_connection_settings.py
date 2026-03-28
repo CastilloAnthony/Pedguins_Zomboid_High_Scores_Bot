@@ -25,16 +25,3 @@ def read_connection_settings(file_path = './settings_connection.json') -> dict:
         with open(file_path, 'r') as file:
             return json.load(file)
 # end read_connection_settings
-{
-"RCON_HOST": "127.0.0.1",
-"RCON_PORT": 27015,
-"RCON_PASSWORD": "test12345",
-"SFTP_HOST": "127.0.0.1",
-"SFTP_PORT": 22,
-"SFTP_USER": "cao21745@yahoo.com",
-"SFTP_PASS": "7Lb4Bz29!",
-"POLLING_RATE" : 10,
-"MAX_POLLING_RATE" : 60,
-"SFTP_PLAYER_DATA_PATH" : "C:\\Users\\Anthony Castillo\\Zomboid\\Lua\\PlayerCharacterDataCollector",
-"LOCAL_PLAYER_DATA_PATH" : "./PlayerCharacterDataCollector"
-}
