@@ -5,6 +5,7 @@ settings_*
 *.old
 db_agent.py
 *.db
+*.code-workspace
 PerkLogs/
 PedguinsHighScoresCollector/
 PlayerCharacterDataCollector/
