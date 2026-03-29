@@ -34,7 +34,7 @@ class Agent_PZ_RCON():
                 if len(response) > 0: # If len(response) is 0 then there was an issue getting a response from the PZ server and we therefore do not want to update online_players
                     new_list = set()
                     for player in response[1:]:
-                        new_list.add(player[1:].lower())
+                        new_list.add(player[1:])
                     if new_list != self.__online_players:
                         self.__online_players = new_list
                         # self.generate_player_connection_msgs(new_list)

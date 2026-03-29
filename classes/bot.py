@@ -125,14 +125,14 @@ class Discord_Bot(commands.Bot):
                 if channel and self.__curr_activity != '' and isinstance(channel, discord.abc.Messageable):
                     if player in self.__player_data_agent.get_player_data():
                         self.__player_data_agent.update_player_last_login(player, time.time())
-                        await channel.send(f"```🟢 - {player.capitalize()} has joined the server!```")
+                        await channel.send(f"```🟢 - {player} has joined the server!```")
 
             # --- Handle leaves ---
             for player in self.__online_players - current_players:
                 duration = time.time() - self.__player_data_agent.get_player_data()[player]['lastLogin']
                 h, m, s = int(duration//3600), int((duration%3600)//60), int((duration%3600)%60)
                 if channel and isinstance(channel, discord.abc.Messageable):
-                    await channel.send(f"```🔴 - {player.capitalize()} has left the server.\nSession: {h}h {m}m {s}s```")
+                    await channel.send(f"```🔴 - {player} has left the server.\nSession: {h}h {m}m {s}s```")
 
             # --- Increment survival and total time for current online players ---
             for player in current_players & self.__online_players:
