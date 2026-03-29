@@ -10,12 +10,13 @@ from datetime import datetime
 # from class_bot import Discord_Bot
 # import class_bot
 
-from player_data_functions import read_json_file, get_default_skills
+from shared_functions.player_data_functions import read_json_file, get_default_skills
 from agents.pz_rcon import Agent_PZ_RCON
 from agents.player_data import Agent_Player_Data
+from classes.bot import Discord_Bot
 
-class Project_Zomboid_Commands(discord.ext.commands.Cog):
-    def __init__(self, bot:discord.ext.commands.Bot, pz_rcon_agent:Agent_PZ_RCON, player_data_agent:Agent_Player_Data):
+class Project_Zomboid_Commands(commands.Cog):
+    def __init__(self, bot:Discord_Bot, pz_rcon_agent:Agent_PZ_RCON, player_data_agent:Agent_Player_Data):
         self.__bot = bot
         self.__pz_rcon_agent = pz_rcon_agent
         self.__player_data_agent = player_data_agent
@@ -332,5 +333,5 @@ class Project_Zomboid_Commands(discord.ext.commands.Cog):
     # end adminCommands_slash
 # end Project_Zomboid_Commands
 
-async def setup(bot:commands.Bot):
+async def setup(bot:Discord_Bot):
     await bot.add_cog(Project_Zomboid_Commands(bot, bot.get_pz_rcon_agent(), bot.get_player_data_agent()))

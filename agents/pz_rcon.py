@@ -5,7 +5,7 @@ from mcrcon import MCRcon
 import logging
 LOGGER: logging.Logger = logging.getLogger("bot")
 
-from read_connection_settings import read_connection_settings
+from shared_functions.read_connection_settings import read_connection_settings
 
 class Agent_PZ_RCON():
     """Retrives and maintains a list of currently online players and the server status
@@ -119,10 +119,6 @@ class Agent_PZ_RCON():
     def get_online_players_msgs(self) -> list[str]:
         return self.__online_players_msgs 
     # end get_online_players_msgs
-
-    def get_curr_activity(self) -> str:
-        return self.__curr_activity
-    # end get_curr_activity
 
     def get_first_check(self) -> bool:
         return self.__first_check

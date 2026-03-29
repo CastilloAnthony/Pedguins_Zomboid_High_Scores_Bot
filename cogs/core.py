@@ -9,12 +9,12 @@ LOGGER: logging.Logger = logging.getLogger("bot")
 # from class_bot import Discord_Bot
 # import class_bot
 
-from player_data_functions import read_json_file
+from shared_functions.player_data_functions import read_json_file
 from agents.pz_rcon import Agent_PZ_RCON
 from agents.player_data import Agent_Player_Data
-
-class Core_Commands(discord.ext.commands.Cog):
-    def __init__(self, bot:discord.commands.Bot):
+from classes.bot import Discord_Bot
+class Core_Commands(commands.Cog):
+    def __init__(self, bot:Discord_Bot):
         self.__bot = bot
     # end __init__
 
@@ -29,11 +29,11 @@ class Core_Commands(discord.ext.commands.Cog):
         LOGGER.info(f'Attempting to sync commands... Please wait...')
         if spec == "~":
             synced = await self.__bot.tree.sync(guild=interaction.guild)
-        elif spec == "*":
+        elif spec == "*" and interaction.guild is not None:
             self.__bot.tree.copy_global_to(guild=interaction.guild)
             synced = await self.__bot.tree.sync(guild=interaction.guild)
         elif spec == "^":
-            await interaction.followup.send(f'This parameter has been omitted')
+            await interaction.followup.send(f'The "^" parameter has been omitted')
             return
             # self.tree.clear_commands(guild=interaction.guild)
             # await self.tree.sync(guild=interaction.guild)
@@ -85,5 +85,5 @@ class Core_Commands(discord.ext.commands.Cog):
     # # end close_slash
 # end Core_Commands
 
-async def setup(bot:commands.Bot):
+async def setup(bot:Discord_Bot):
     await bot.add_cog(Core_Commands(bot))

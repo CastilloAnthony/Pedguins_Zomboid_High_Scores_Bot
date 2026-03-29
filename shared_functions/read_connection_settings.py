@@ -21,6 +21,8 @@ def read_connection_settings(file_path = './settings_connection.json') -> dict:
                 "MAX_POLLING_RATE" : 60,
             }, file, indent=4)
         LOGGER.info('Created new settings_connection.json file, please fill out missing passwords and/or incorrect and/or missing data.')
+        with open(file_path, 'r') as file:
+            return json.load(file)
     else:
         with open(file_path, 'r') as file:
             return json.load(file)

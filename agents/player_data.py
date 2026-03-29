@@ -8,8 +8,8 @@ import paramiko
 import logging
 LOGGER: logging.Logger = logging.getLogger("bot")
 
-from read_connection_settings import read_connection_settings
-from player_data_functions import read_json_file, save_json_file, get_default_skills#, merge_duplicate_players
+from shared_functions.read_connection_settings import read_connection_settings
+from shared_functions.player_data_functions import read_json_file, save_json_file, get_default_skills#, merge_duplicate_players
 
 class Agent_Player_Data():
     """Connects to an sftp server, copies json files from the server to a local dir, iterates over those files to import them to a variable accessible by a function
@@ -37,12 +37,15 @@ class Agent_Player_Data():
             bool: Success or failure
         """
         sftp = None
+        transport = None
         try:
             transport = paramiko.Transport((self.__settings['SFTP_HOST'], self.__settings['SFTP_PORT']))
             transport.connect(username=self.__settings['SFTP_USER'], password=self.__settings['SFTP_PASS'])
             sftp = paramiko.SFTPClient.from_transport(transport)
             if not Path(self.__settings['LOCAL_PLAYER_DATA_PATH']).is_dir():
                 Path(self.__settings['LOCAL_PLAYER_DATA_PATH']).mkdir()
+            if sftp is None:
+                raise Exception("Failed to create SFTP client")
             filesnames = sftp.listdir(self.__settings['SFTP_PLAYER_DATA_PATH'])
             player_data_files = [f for f in filesnames if f.endswith("_data.json")]
             if player_data_files:
@@ -72,6 +75,7 @@ class Agent_Player_Data():
         finally:
             if sftp:
                 sftp.close()
+            if transport:
                 transport.close()
         return True
     # end poll_server
@@ -171,7 +175,9 @@ class Agent_Player_Data():
                 real_str = "less than a minute"
             skill_emojis = read_json_file('./skill_emojis.json')
             perks_exclude_fitness_strength = {perk: level for perk, level in player_data['perks'].items() if perk not in ['Fitness', 'Strength']}
-            emoji = skill_emojis.get(max(perks_exclude_fitness_strength,key=perks_exclude_fitness_strength.get), '')
+            # emoji = skill_emojis.get(max(perks_exclude_fitness_strength,key=perks_exclude_fitness_strength.get), '')
+            highest_skill = max(perks_exclude_fitness_strength, key=lambda perk: perks_exclude_fitness_strength[perk])
+            emoji = skill_emojis.get(highest_skill, '')
             url = 'https://b42map.com/?'+str(round(player_data['coord_x']))+'x'+str(round(player_data['coord_y']))
             message = [
                 f' {player_data['username']} has died.',
@@ -179,7 +185,7 @@ class Agent_Player_Data():
                 f'Real-life: {real_str}.',
                 f'Zombie Kills: {player_data['zombie_kills']}.',
                 f'Total Skills: {sum(player_data['perks'].values())}.',
-                f'Highest Skill: {max(perks_exclude_fitness_strength,key=perks_exclude_fitness_strength.get)} at {player_data['perks'][max(perks_exclude_fitness_strength,key=perks_exclude_fitness_strength.get)]}.',
+                f'Highest Skill: {highest_skill} at {player_data['perks'][highest_skill]}.',
                 # f'Locaiton: {url}', # URL needs to be ouside of the code block otherwise it isn't clickable
             ]
             # await pz_rcon_agent.say_to_pz_server(' '.join(message))
@@ -320,15 +326,17 @@ class Agent_Player_Data():
     #         return False
     # # end add_player_login_time
 
-    def get_player_data(self, username:str = None) -> dict:
+    def get_player_data(self, username:str = "") -> dict:
         """Returns a dictionary of either all player data or just one player's data
 
         Returns:
             dict: player data
         """
-        if username != None:
+        if username != "":
             if username in self.__player_data:
                 return self.__player_data[username]
+            else:
+                return self.__player_data
         else:
             return self.__player_data
     # end get_player_data
