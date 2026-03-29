@@ -15,7 +15,7 @@ def read_connection_settings(file_path = './settings_connection.json') -> dict:
                 "SFTP_PORT" : 2022,
                 "SFTP_USER" : "username.ID.etc",
                 "SFTP_PASS" : "",
-                "SFTP_PLAYER_DATA_PATH" : "./cache/Lua/PlayerCharacterDataCollector",
+                "SFTP_PLAYER_DATA_PATH" : "./cache/Lua/PlayerCharacterDataCollector/Server",
                 "LOCAL_PLAYER_DATA_PATH" : "./PlayerCharacterDataCollector",
                 "POLLING_RATE" : 5,
                 "MAX_POLLING_RATE" : 60,
