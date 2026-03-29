@@ -73,7 +73,7 @@ def read_json_file(file_path:str) -> dict:
         error = traceback.format_exc()
         lines = error.split('\n')
         print(error)
-        errorous_dir = './errorousJsons/'
+        errorous_dir = './errorous_jsons_data/'
         datestamp_json = str(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))+'.json'
         LOGGER.error(f'There was an error in reading {file_path} saving copy to '+errorous_dir+datestamp_json)
         LOGGER.error('Error in player_data_functions.py function read_json_file')
