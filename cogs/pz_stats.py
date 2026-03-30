@@ -259,7 +259,29 @@ class Project_Zomboid_Commands(commands.Cog):
     @app_commands.describe(target="Trait name, player name or 'top'.")
     async def traits_slash(self, interaction: discord.Interaction, target:str = "top"): #target2:str=None
         await interaction.response.defer(thinking=True)
-        await interaction.followup.send(f"```This command is currently unavailable.```")
+        if target == "top":
+            traits_list = {}
+            all_player_data = self.__player_data_agent.get_player_data()
+            for player_data in all_player_data:
+                for trait in all_player_data[player_data]['traits']:
+                    if trait not in traits_list:
+                        traits_list[trait] = 1
+                    else:
+                        traits_list[trait] += 1
+            traits_top_list = [] 
+            for key, value in traits_list.items():
+                traits_top_list.append((key, value))
+            traits_top_list = sorted(traits_top_list, key=lambda x: x[1], reverse=True)[:10]
+            await interaction.followup.send(f"```📊 - Top 10 Traits:\n" + "\n".join([f"{trait}: {count}" for trait, count in traits_top_list]) + "```")
+        elif len(difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())) > 0:
+            trait_lines = []
+            matches = difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())
+            player_data = self.__player_data_agent.get_player_data()[matches[0]]
+            for trait in player_data['traits']:
+                trait_lines.append(f'- {trait}')
+            await interaction.followup.send(f"```{player_data['username']}'s Traits:\n" + "\n".join(trait_lines) + "```")
+        else:
+            await interaction.followup.send(f"```Could not find player or trait with name {target}```")
     # end traits_slash
 
     @app_commands.command(name="world", description="Show world information")
