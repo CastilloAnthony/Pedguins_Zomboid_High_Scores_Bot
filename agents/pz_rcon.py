@@ -2,6 +2,7 @@
 import traceback
 import time
 from mcrcon import MCRcon
+import copy
 import logging
 LOGGER: logging.Logger = logging.getLogger("bot")
 
@@ -109,19 +110,19 @@ class Agent_PZ_RCON():
     # # end generate_player_connection_msgs
 
     def get_online_players(self) -> set:
-        return self.__online_players
+        return copy.deepcopy(self.__online_players)
     # end get_online_players
 
     def get_server_status(self) -> bool:
-        return self.__server_status
+        return copy.deepcopy(self.__server_status)
     # end get_server_status
 
     def get_online_players_msgs(self) -> list[str]:
-        return self.__online_players_msgs 
+        return copy.deepcopy(self.__online_players_msgs)
     # end get_online_players_msgs
 
     def get_first_check(self) -> bool:
-        return self.__first_check
+        return copy.deepcopy(self.__first_check)
     # end get_first_check
 
     def toggle_running(self) -> None:
