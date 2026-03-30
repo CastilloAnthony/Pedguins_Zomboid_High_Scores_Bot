@@ -31,7 +31,7 @@ class Project_Zomboid_Commands(commands.Cog):
         lines = []
         for player in sorted(self.__pz_rcon_agent.get_online_players()):
             if player in self.__player_data_agent.get_player_data():
-                duration = time.time() - self.__player_data_agent.get_player_data()[player]['lastLogin'] #player_sessions.get(player, now)
+                duration = time.time() - self.__player_data_agent.get_player_data(player)['lastLogin'] #player_sessions.get(player, now)
                 h, m, s = int(duration//3600), int((duration%3600)//60), int((duration%(60*60)%60))
                 lines.append(f"- {player} ({h}h {m}m {s}s)")
         await interaction.followup.send(f"```🟢 - Players Online (Session Time):\n" + "\n".join(lines) + f"\n\nTotal: {len(self.__pz_rcon_agent.get_online_players())}```")
@@ -69,7 +69,7 @@ class Project_Zomboid_Commands(commands.Cog):
         #     await interaction.followup.send(f"```{status} - {target.capitalize()} has played for {h}h {m}m {s}s in total.```")
         elif len(difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())) > 0: # Get closest match
             matches = difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())
-            player_data = self.__player_data_agent.get_player_data()[matches[0]]
+            player_data = self.__player_data_agent.get_player_data(matches[0])
             h, m, s = 0, 0, 0
             if target in self.__pz_rcon_agent.get_online_players():
                 player_time = player_data['totalPlayTime']+(time.time()-player_data['lastPoll'])
@@ -106,7 +106,7 @@ class Project_Zomboid_Commands(commands.Cog):
         #     await interaction.followup.send(f"```{status} - {target.capitalize()} has survived for {days} days and {hours} hours in-game.```")
         elif len(difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())) > 0: # Get closest match
             matches = difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())
-            player_data = self.__player_data_agent.get_player_data()[matches[0]]
+            player_data = self.__player_data_agent.get_player_data(matches[0])
             days = int(player_data['hours_survived']//24)
             hours = int(player_data['hours_survived']%24)
             status = "🟢" if matches[0] in self.__pz_rcon_agent.get_online_players() else "🔴"
@@ -227,7 +227,7 @@ class Project_Zomboid_Commands(commands.Cog):
         #     await interaction.followup.send(f"```{emoji} - Top 10 Players by {target_capitalize}:\n" + "\n".join(lines) + "```")
         elif len(difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())) > 0: # Get closest match of players
             matches = difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())
-            player_data = self.__player_data_agent.get_player_data()[matches[0]]
+            player_data = self.__player_data_agent.get_player_data(matches[0])
             skills = []
             for perk in sorted(player_data['perks']):
                 if player_data['perks'][perk] > 0:
@@ -255,40 +255,103 @@ class Project_Zomboid_Commands(commands.Cog):
             await interaction.followup.send(f"```Could not find player or skill with name {target}```")
     # end skill_slash
 
+    @app_commands.command(name="professions", description="Show a player's profession, a list of players for a profession, or the top professions.")
+    @app_commands.describe(target="Profession name, player name or 'top'.")
+    async def professions_slash(self, interaction: discord.Interaction, target:str = "top"): #target2:str=None
+        await interaction.response.defer(thinking=True)
+        if target == "top":
+            profession_list = {}
+            all_player_data = self.__player_data_agent.get_player_data()
+            for player_data in all_player_data:
+                if all_player_data[player_data]['access_level'] != "admin":
+                    if all_player_data[player_data]['profession'] not in profession_list:
+                        profession_list[all_player_data[player_data]['profession']] = 1
+                    else:
+                        profession_list[all_player_data[player_data]['profession']] += 1
+            profession_top_list = []
+            for key, value in profession_list.items():
+                profession_top_list.append((key, value))
+            profession_top_list = sorted(profession_top_list, key=lambda x: x[1], reverse=True)[:10]
+            await interaction.followup.send(f"```📊 - Top 10 Most Popular Professions:\n" + "\n".join([f"{profession}: {count}" for profession, count in profession_top_list]) + "```")
+        elif len(difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())) > 0: # Get closest match of players
+            matches = difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())
+            player_data = self.__player_data_agent.get_player_data(matches[0])
+            await interaction.followup.send(f"```{player_data['username']}'s Profession: {player_data['profession']}```")
+        else:
+            profession_list = {}
+            all_player_data = self.__player_data_agent.get_player_data()
+            for player_data in all_player_data:
+                if all_player_data[player_data]['access_level'] != "admin":
+                    if all_player_data[player_data]['profession'] not in profession_list:
+                        profession_list[all_player_data[player_data]['profession']] = [player_data]
+                    else:
+                        profession_list[all_player_data[player_data]['profession']].append(player_data)
+            if len(difflib.get_close_matches(target, profession_list)) > 0: # Get closest match of professions
+                matches = difflib.get_close_matches(target, profession_list.keys())
+                lines = []
+                for player in profession_list[matches[0]]:
+                    status = "🟢" if player in [pl for pl in self.__pz_rcon_agent.get_online_players()] else "🔴"
+                    lines.append(f'{status} - {all_player_data[player]["username"]}')
+                await interaction.followup.send(f"```Players with the {matches[0]} profession:\n" + "\n".join(lines) + "```")
+            else:
+                await interaction.followup.send(f"```Could not find player or profession with name {target}```")
+    # end professions_slash
+
     @app_commands.command(name="traits", description="Show a player's traits or a list of players for a trait")
     @app_commands.describe(target="Trait name, player name or 'top'.")
     async def traits_slash(self, interaction: discord.Interaction, target:str = "top"): #target2:str=None
         await interaction.response.defer(thinking=True)
-        if target == "top":
+        if target == "top": # Default, leaderboard
             traits_list = {}
             all_player_data = self.__player_data_agent.get_player_data()
             for player_data in all_player_data:
-                for trait in all_player_data[player_data]['traits']:
-                    if trait not in traits_list:
-                        traits_list[trait] = 1
-                    else:
-                        traits_list[trait] += 1
+                if all_player_data[player_data]['access_level'] != "admin":
+                    for trait in all_player_data[player_data]['traits']:
+                        if trait not in traits_list:
+                            traits_list[trait] = 1
+                        else:
+                            traits_list[trait] += 1
             traits_top_list = [] 
             for key, value in traits_list.items():
                 traits_top_list.append((key, value))
             traits_top_list = sorted(traits_top_list, key=lambda x: x[1], reverse=True)[:10]
-            await interaction.followup.send(f"```📊 - Top 10 Traits:\n" + "\n".join([f"{trait}: {count}" for trait, count in traits_top_list]) + "```")
-        elif len(difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())) > 0:
+            await interaction.followup.send(f"```📊 - Top 10 Most Popular Traits:\n" + "\n".join([f"{trait}: {count}" for trait, count in traits_top_list]) + "```")
+        elif len(difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())) > 0: # Get closest match of players
             trait_lines = []
             matches = difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())
-            player_data = self.__player_data_agent.get_player_data()[matches[0]]
+            player_data = self.__player_data_agent.get_player_data(matches[0])
             for trait in player_data['traits']:
                 trait_lines.append(f'- {trait}')
             await interaction.followup.send(f"```{player_data['username']}'s Traits:\n" + "\n".join(trait_lines) + "```")
         else:
-            await interaction.followup.send(f"```Could not find player or trait with name {target}```")
+            trait_list = {}
+            all_player_data = self.__player_data_agent.get_player_data()
+            for player_data in all_player_data:
+                if all_player_data[player_data]['access_level'] != "admin":
+                    for trait in all_player_data[player_data]['traits']:
+                        if trait not in trait_list:
+                            trait_list[trait] = [player_data]
+                        else:
+                            trait_list[trait].append(player_data)
+            if len(difflib.get_close_matches(target, trait_list)) > 0: # Get closest match of traits
+                matches = difflib.get_close_matches(target, trait_list.keys())
+                lines = []
+                for player in trait_list[matches[0]]:
+                    status = "🟢" if player in [pl for pl in self.__pz_rcon_agent.get_online_players()] else "🔴"
+                    lines.append(f'{status} - {all_player_data[player]["username"]}')
+                await interaction.followup.send(f"```Players with the {matches[0]} trait:\n" + "\n".join(lines) + "```")
+            else:
+                await interaction.followup.send(f"```Could not find player or trait with name {target}```")
     # end traits_slash
 
     @app_commands.command(name="world", description="Show world information")
     @app_commands.describe(target="UNDEFINED.")
     async def world_slash(self, interaction: discord.Interaction, target:str = ""): #target2:str=None
         await interaction.response.defer(thinking=True)
-        await interaction.followup.send(f"```This command is currently unavailable.```")
+        if target == "time":
+            pass
+        else:
+            await interaction.followup.send(f"```No world data for {target}```")
     # end traits_slash
 
     # # Disabled until a discord-to-pz-username connection can be made
@@ -318,7 +381,8 @@ class Project_Zomboid_Commands(commands.Cog):
             players = self.__player_data_agent.get_player_data()
             matches = difflib.get_close_matches(player, players.keys())
             url = 'https://b42map.com/?'+str(round(players[matches[0]]['coords']['x']))+'x'+str(round(players[matches[0]]['coords']['y']))
-            await interaction.followup.send(f'```{matches[0]}\'s last known position:``` {url}')
+            status = "🟢" if matches[0] in [player for player in self.__pz_rcon_agent.get_online_players()] else "🔴"
+            await interaction.followup.send(f'```{status} - {matches[0]}\'s last known position:``` {url}')
         else:
             await interaction.followup.send(f'```Could not find player named {player}```')
     # end position_slash
@@ -329,7 +393,7 @@ class Project_Zomboid_Commands(commands.Cog):
         await interaction.response.defer(thinking=True)
         if len(difflib.get_close_matches(player, self.__player_data_agent.get_player_data().keys())) > 0:
             matches = difflib.get_close_matches(player, self.__player_data_agent.get_player_data().keys())
-            player_data = self.__player_data_agent.get_player_data()[matches[0]]
+            player_data = self.__player_data_agent.get_player_data(matches[0])
             status = "🟢" if matches[0] in [pl for pl in self.__pz_rcon_agent.get_online_players()] else "🔴"
             await interaction.followup.send(f'```{status} - {player_data['username']}\'s last login: {datetime.fromtimestamp(round(player_data['lastLogin'])).strftime("%B %d, %Y %H:%M:%S")}```')
         else:
