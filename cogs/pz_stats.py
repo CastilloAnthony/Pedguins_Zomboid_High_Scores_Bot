@@ -345,11 +345,54 @@ class Project_Zomboid_Commands(commands.Cog):
     # end traits_slash
 
     @app_commands.command(name="world", description="Show world information")
-    @app_commands.describe(target="UNDEFINED.")
+    @app_commands.describe(target="time, weather, season, temperature, .")
     async def world_slash(self, interaction: discord.Interaction, target:str = ""): #target2:str=None
         await interaction.response.defer(thinking=True)
-        if target == "time":
-            pass
+        if target == "": # Default
+            world_data = self.__player_data_agent.get_world_data()
+            if world_data:
+                lines = []
+                lines.append(f"🌎 - World Report - 🌎\n")
+                lines.append(f"🕒 Time: {self.get_time(world_data['time'])}")
+                lines.append(f"🍂 Season: {world_data['season']['name']}")
+                lines.append(f"🌡️ Temperature: {round(world_data['temperature']['base'], 1)}°C")
+                lines.append(f"⛅ Weather:\n{self.get_weather_description(world_data['weather'])}")
+                wind_direction = self.get_wind_direction(world_data['wind']['angle_degrees'])
+                lines.append(f"💨 Wind:\n{self.get_wind_description(world_data['wind'])}")
+                await interaction.followup.send(f"```{'\n'.join(lines)}```")
+            else:
+                await interaction.followup.send(f"```No world data available.```")
+        elif target == "time":
+            world_data = self.__player_data_agent.get_world_data('time')
+            if world_data:
+                await interaction.followup.send(f"```🕒 - Current World Time: {self.get_time(world_data)}```")
+            else:
+                await interaction.followup.send(f"```No world data available.```")
+        elif target == "season":
+            world_data = self.__player_data_agent.get_world_data('season')
+            if world_data:
+                await interaction.followup.send(f"```🍂 - Current Season: {world_data['name']}```")
+            else:
+                await interaction.followup.send(f"```No world data available.```")
+        elif target == "weather":
+            world_data = self.__player_data_agent.get_world_data('weather')
+            if world_data:
+                await interaction.followup.send(f"```⛅ - Current Weather:\n{self.get_weather_description(world_data)}```")
+            else:
+                await interaction.followup.send(f"```No world data available.```")
+        elif target == "temperature" or target == "temp":
+            world_data = self.__player_data_agent.get_world_data('temperature')
+            if world_data:
+                await interaction.followup.send(f"```🌡️ - Current Temperature: {round(world_data['base'], 1)}°C```")
+            else:
+                await interaction.followup.send(f"```No world data available.```")
+        elif target == "wind":
+            world_data = self.__player_data_agent.get_world_data('wind')
+            if world_data:
+                wind_direction = self.get_wind_direction(world_data['angle_degrees'])
+                await interaction.followup.send(f"```💨 - Current Wind:\n{self.get_wind_description(world_data)}```")
+            else:
+                await interaction.followup.send(f"```No world data available.```")
         else:
             await interaction.followup.send(f"```No world data for {target}```")
     # end traits_slash
@@ -435,6 +478,67 @@ class Project_Zomboid_Commands(commands.Cog):
             ephemeral=True
         )
     # end adminCommands_slash
+
+    def get_wind_direction(self, angle_degrees:float, short:bool = False) -> str:
+        wind_direction = ""
+        if angle_degrees <= 45+22.5 and angle_degrees >= 45-22.5:
+            wind_direction = "Northeast" if not short else "NE"
+        elif angle_degrees <= 135+22.5 and angle_degrees >= 135-22.5:
+            wind_direction = "Northwest" if not short else "NW"
+        elif angle_degrees <= 225+22.5 and angle_degrees >= 225-22.5:
+            wind_direction = "Southwest" if not short else "SW"
+        elif angle_degrees <= 315+22.5 and angle_degrees >= 315-22.5:
+            wind_direction = "Southeast" if not short else "SE"
+        elif angle_degrees <= 0+22.5 and angle_degrees >= 360-22.5:
+            wind_direction = "East" if not short else "E"
+        elif angle_degrees <= 90+22.5 and angle_degrees >= 90-22.5:
+            wind_direction = "North" if not short else "N"
+        elif angle_degrees <= 180+22.5 and angle_degrees >= 180-22.5:
+            wind_direction = "West" if not short else "W"
+        elif angle_degrees <= 270+22.5 and angle_degrees >= 270-22.5:
+            wind_direction = "South" if not short else "S"
+        else:
+            wind_direction = f"{round(angle_degrees, 1)}°"
+        return wind_direction
+    # end get_wind_direction
+
+    def get_weather_description(self, weather_data:dict) -> str:
+        if weather_data:
+            lines = []
+            lines.append(f"\tClounds: {round(weather_data['cloud_intensity'], 1)}")
+            lines.append(f"\tHumidity: {round(weather_data['humidity'], 1)}")
+            lines.append(f"\tFog Intensity: {round(weather_data['fog_intensity'], 1)}")
+            if weather_data['thunderstorm']:
+                lines.append(f"\tThunderstorming")
+            lines.append("\tPrecipitation:")
+            if weather_data['precipitation']['raining']:
+                lines.append(f"\t\tRain Intensity: {round(weather_data['precipitation']['rain_intensity'], 1)}")
+            if weather_data['precipitation']['snowing']:
+                lines.append(f"\t\tSnow Intensity: {round(weather_data['precipitation']['snow_intensity'], 1)}")
+            if weather_data['precipitation']['snow']:
+                lines.append(f"\t\tSnow Strength: {round(weather_data['precipitation']['snow_strength'], 1)}")
+            if not weather_data['precipitation']['raining'] and not weather_data['precipitation']['snowing'] and not weather_data['precipitation']['snow']:
+                lines.append(f"\t\tNo Precipitation")
+            return "\n".join(lines)
+        return "Weather data not retrieved."
+    # end get_weather_description
+
+    def get_time(self, time_data:dict) -> str:
+        if time_data:
+            return f"{datetime(year=time_data['year'], month=time_data['month'], day=time_data['day'], hour=time_data['hour'], minute=time_data['minute']).strftime('%B %d, %Y %H:%M')}"
+        return "Time data not recieved./"
+    # end get_time
+
+    def get_wind_description(self, wind_data:dict) -> str:
+        if wind_data:
+            lines = []
+            lines.append(f"\tSpeed: {round(wind_data['speed_kph'], 1)} km/h")
+            wind_direction = self.get_wind_direction(wind_data['angle_degrees'])
+            lines.append(f"\tDirection: {wind_direction}")
+            lines.append(f"\tIntensity: {round(wind_data['intensity'], 1)}")
+            return "\n".join(lines)
+        return "Wind data not retrieved."
+    # end get_wind_description
 # end Project_Zomboid_Commands
 
 async def setup(bot:Discord_Bot):

@@ -122,7 +122,10 @@ class Agent_Player_Data():
     # end poll_server
 
     def update_world_data(self) -> None:
-        self.__world_data = read_json_file(os.path.join(self.__settings['LOCAL_PLAYER_DATA_PATH'], 'world_state.json'))
+        world_data = read_json_file(os.path.join(self.__settings['LOCAL_PLAYER_DATA_PATH'], 'world_state.json'))
+        if world_data:
+            if 'time' in world_data:
+                self.__world_data = world_data
     # end update_world_data
 
     def update_player_data(self) -> None:
@@ -386,8 +389,14 @@ class Agent_Player_Data():
             return copy.deepcopy(self.__player_data)
     # end get_player_data
 
-    def get_world_data(self) -> dict:
-        return copy.deepcopy(self.__world_data)
+    def get_world_data(self, param:str = "") -> dict:
+        if param != "":
+            if param in self.__world_data:
+                return copy.deepcopy(self.__world_data[param])
+            else:
+                return copy.deepcopy(self.__world_data)
+        else:
+            return copy.deepcopy(self.__world_data)
     # end get_world_data
 
     def get_level_ups_msgs(self) -> list[str]:
