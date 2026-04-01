@@ -166,7 +166,7 @@ class Agent_Player_Data():
 
                                 if player_data['is_alive'] != self.__player_data[player_data['username']]['is_alive'] and player_data['is_alive'] != True: # Check for deaths, Exclue new character
                                     # perks_exclude_fitness_strength = {perk: level for perk, level in player_data['perks'].items() if perk not in ['Fitness', 'Strength']}
-                                    self.__deaths.append(player_data)
+                                    self.__deaths.append(copy.deepcopy(player_data))
                                     # self.__deaths.append((
                                     #     player_data['username'], 
                                     #     player_data['hours_survived'], 
@@ -203,20 +203,20 @@ class Agent_Player_Data():
     def generate_death_msgs(self) -> None:
         deaths = copy.deepcopy(self.__deaths)
         self.__deaths = []
-        # for player_name, hours_survived, zombie_kills, sum_of_perks, highest_skill, skill_level, coord_x, coord_y in deaths:
+        # for player_name, time_survived_float, zombie_kills, sum_of_perks, highest_skill, skill_level, coord_x, coord_y in deaths:
         for player_data in deaths:
             # In-game time
-            in_game_days = int(player_data['hours_survived'] // 24) # 24 Hours in a Day
-            in_game_hours = int(player_data['hours_survived'] % 24) # The remainder of the days calculations
-            in_game_minutes = int((player_data['hours_survived'] - int(player_data['hours_survived'])) * 60) # The decimal as a percentage of 60 minutes
-            if player_data['hours_survived'] >= 1:
+            in_game_days = int(player_data['time_survived_float'] // 24) # 24 Hours in a Day
+            in_game_hours = int(player_data['time_survived_float'] % 24) # The remainder of the days calculations
+            in_game_minutes = int((player_data['time_survived_float'] - int(player_data['time_survived_float'])) * 60) # The decimal as a percentage of 60 minutes
+            if player_data['time_survived_float'] >= 1:
                 in_game_str = f"{in_game_days} days {in_game_hours} hours {in_game_minutes} minutes" if in_game_days > 0 else f"{in_game_hours} hours {in_game_minutes} minutes"
             else:
                 in_game_str = "less than 1 hour"
             # Real-life time # 24 Hours In-Game is 1 IRL Hour
-            real_days = int(player_data['hours_survived'] // (24*24)) # 24 Hours is 576 Zomboid Hours
-            real_hours = int((player_data['hours_survived'] % (24*24)) // 24) # 1 Hour is 24 Zomboid Hours
-            real_mins = int(((player_data['hours_survived'] % (24*24)) % 24) // (24/60)) # 1/60 Hours is 0.4 Zomboid Hours
+            real_days = int(player_data['time_survived_float'] // (24*24)) # 24 Hours is 576 Zomboid Hours
+            real_hours = int((player_data['time_survived_float'] % (24*24)) // 24) # 1 Hour is 24 Zomboid Hours
+            real_mins = int(((player_data['time_survived_float'] % (24*24)) % 24) // (24/60)) # 1/60 Hours is 0.4 Zomboid Hours
             if real_mins >= 1:
                 real_str = f"{real_days} days {real_hours} hours {real_mins} minutes" if real_days > 0 else f"{real_hours} hours {real_mins} minutes"
             else:

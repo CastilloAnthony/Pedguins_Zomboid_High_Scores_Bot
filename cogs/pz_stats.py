@@ -91,7 +91,7 @@ class Project_Zomboid_Commands(commands.Cog):
             all_player_data = self.__player_data_agent.get_player_data()
             for player in all_player_data:
                 if all_player_data[player]['access_level'] != "admin": # Exclude admins from survival time leaderboard
-                    player_times.append((all_player_data[player]['username'], all_player_data[player]['hours_survived']%24, all_player_data[player]['hours_survived']//24, all_player_data[player]['hours_survived']))
+                    player_times.append((all_player_data[player]['username'], all_player_data[player]['time_survived_float']%24, all_player_data[player]['time_survived_float']//24, all_player_data[player]['time_survived_float']))
             player_times = sorted(player_times, key=lambda tup: tup[3], reverse=True)
             lines = []
             for p, hours, days, _ in player_times[:10]: # Top 10 (arrays/lists start at 0 and this syntax goes up to, but does not include the last index)
@@ -100,15 +100,15 @@ class Project_Zomboid_Commands(commands.Cog):
             await interaction.followup.send("```🕒 - Top 10 Current Character by In-Game Survival Hours:\n" + "\n".join((lines)) + "```")
         # elif target.lower() in self.__player_data_agent.get_player_data(): # A Singlar Player
         #     player_data = self.__player_data_agent.get_player_data()[target.lower()]
-        #     days = int(player_data['hours_survived']//24)
-        #     hours = int(player_data['hours_survived']%24)
+        #     days = int(player_data['time_survived_float']//24)
+        #     hours = int(player_data['time_survived_float']%24)
         #     status = "🟢" if target.lower() in self.__pz_rcon_agent.get_online_players() else "🔴"
         #     await interaction.followup.send(f"```{status} - {target.capitalize()} has survived for {days} days and {hours} hours in-game.```")
         elif len(difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())) > 0: # Get closest match
             matches = difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())
             player_data = self.__player_data_agent.get_player_data(matches[0])
-            days = int(player_data['hours_survived']//24)
-            hours = int(player_data['hours_survived']%24)
+            days = int(player_data['time_survived_float']//24)
+            hours = int(player_data['time_survived_float']%24)
             status = "🟢" if matches[0] in self.__pz_rcon_agent.get_online_players() else "🔴"
             await interaction.followup.send(f"```{status} - {matches[0]} has survived for {days} days and {hours} hours in-game.```")
         else:
@@ -171,14 +171,14 @@ class Project_Zomboid_Commands(commands.Cog):
     #         await interaction.followup.send(f'```Could not find a player named {target}.```')
     # # end survivors_slash
 
-    @app_commands.command(name="skill", description="Show a player's skills or leaderboard for a skill")
-    @app_commands.describe(target="Skill name, player name, 'total' or 'all'.")
-    async def skill_slash(self, interaction: discord.Interaction, target:str = "total"): #target2:str=None
+    @app_commands.command(name="skills", description="Show a player's skills or leaderboard for a skill")
+    @app_commands.describe(target="Nothing, a skill name or a player name.")
+    async def skills_slash(self, interaction: discord.Interaction, target:str = ""): #target2:str=None
         await interaction.response.defer(thinking=True)
         skill_aliases = read_json_file('./skill_aliases.json')
         skill_emojis = read_json_file('./skill_emojis.json')
         lines = []
-        if target == 'all' or target == 'total': # All Players
+        if target == '': # Show leaderboard
             combined = []
             all_player_data = self.__player_data_agent.get_player_data()
             for player_data in all_player_data:
@@ -344,15 +344,68 @@ class Project_Zomboid_Commands(commands.Cog):
                 await interaction.followup.send(f"```Could not find player or trait with name {target}```")
     # end traits_slash
 
-    @app_commands.command(name="world", description="Show world information")
-    @app_commands.describe(target="time, weather, season, temperature, .")
+    @app_commands.command(name="stats", description="Show all of a player's stats")
+    @app_commands.describe(target="A player's name.")
+    async def stats_slash(self, interaction: discord.Interaction, target:str): #target2:str=None
+        await interaction.response.defer(thinking=True)
+        if len(difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())) > 0:
+            matches = difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())
+            player_data = self.__player_data_agent.get_player_data(matches[0])
+            lines = []
+            status = "🟢" if matches[0] in [pl for pl in self.__pz_rcon_agent.get_online_players()] else "🔴"
+            lines.append(f"{status} - {player_data['username']}\'s Stats\n")
+            lines.append(f"Username: {player_data['username']}")
+            h, m, s = 0, 0, 0
+            if target in self.__pz_rcon_agent.get_online_players():
+                player_time = player_data['totalPlayTime']+(time.time()-player_data['lastPoll'])
+                h, m, s = int(player_time//3600), int((player_time%3600)//60), int((player_time%3600)%60)
+            else:
+                h, m, s = int(player_data['totalPlayTime']//3600), int((player_data['totalPlayTime']%3600)//60), int((player_data['totalPlayTime']%3600)%60)
+            lines.append(f"Total Playtime: {h}h {m}m {s}s")
+            lines.append(f"Last Login: {datetime.fromtimestamp(round(player_data['lastLogin'])).strftime("%B %d, %Y, %H:%M:%S")}")
+            lines.append(f"Character Name: {player_data['character_name']}")
+            lines.append(f"Faction: {player_data['faction']}")
+            lines.append(f"Is Alive?: {'Yes' if player_data['is_alive'] else 'No'}")
+            days = int(player_data['time_survived_float']//24)
+            hours = int(player_data['time_survived_float']%24)
+            lines.append(f"Has Survived For: {days} days and {hours} hours in-game.")
+            lines.append(f"Zombie Kills: {player_data['zombie_kills']}")
+            # lines.append(f"Survivor Kills: {player_data['survivor_kills']}") # Ommitted for PvE server
+            lines.append(f"Profession: {player_data['profession']}")
+            lines.append(f"Traits: {', '.join(player_data['traits'])}")
+            skill_emojis = read_json_file('./skill_emojis.json')
+            skills = []
+            for perk in player_data['perks']:
+                if player_data['perks'][perk] > 0:
+                    skills.append((perk, player_data['perks'][perk]))
+            skills = sorted(skills, key=lambda x: x[1], reverse=True)
+            lines.append(f"Skills (Total: {sum(tuple[1] for tuple in skills)}):")
+            for tuple in skills:
+                emoji = skill_emojis.get(tuple[0], '')
+                lines.append(f'\t{emoji} {tuple[0]}: {tuple[1]}')
+            lines.append(f"\nLast Updated: {datetime.fromtimestamp(round(player_data['timestamp'])).strftime("%B %d, %Y, %H:%M:%S")}")
+            await interaction.followup.send(f"```{'\n'.join(lines)}```")
+        elif target == '':
+            await interaction.followup.send(f"```Please enter a username```")
+        else:
+            await interaction.followup.send(f"```Could not find player a named {target}```")
+    # end stats_slash
+
+    @app_commands.command(name="time", description="Show world time.")
+    async def time_slash(self, interaction: discord.Interaction):
+        await interaction.response.defer(thinking=True)
+        await interaction.followup.send(f"```🕒 - Current World Time: {self.get_time(self.__player_data_agent.get_world_data('time'))}```")
+    # end time_slash
+    
+    @app_commands.command(name="weather", description="Show world information")
+    @app_commands.describe(target="time, season, temperature, weather or wind.")
     async def world_slash(self, interaction: discord.Interaction, target:str = ""): #target2:str=None
         await interaction.response.defer(thinking=True)
         if target == "": # Default
             world_data = self.__player_data_agent.get_world_data()
             if world_data:
                 lines = []
-                lines.append(f"🌎 - World Report - 🌎\n")
+                lines.append(f"🌎 - Weather Report - 🌎\n")
                 lines.append(f"🕒 Time: {self.get_time(world_data['time'])}")
                 lines.append(f"🍂 Season: {world_data['season']['name']}")
                 lines.append(f"🌡️ Temperature: {round(world_data['temperature']['base'], 1)}°C")
@@ -365,7 +418,7 @@ class Project_Zomboid_Commands(commands.Cog):
         elif target == "time":
             world_data = self.__player_data_agent.get_world_data('time')
             if world_data:
-                await interaction.followup.send(f"```🕒 - Current World Time: {self.get_time(world_data)}```")
+                await interaction.followup.send(f"```🕒 - Current World Time: {self.get_time(self.__player_data_agent.get_world_data('time'))}```")
             else:
                 await interaction.followup.send(f"```No world data available.```")
         elif target == "season":
@@ -374,16 +427,16 @@ class Project_Zomboid_Commands(commands.Cog):
                 await interaction.followup.send(f"```🍂 - Current Season: {world_data['name']}```")
             else:
                 await interaction.followup.send(f"```No world data available.```")
-        elif target == "weather":
-            world_data = self.__player_data_agent.get_world_data('weather')
-            if world_data:
-                await interaction.followup.send(f"```⛅ - Current Weather:\n{self.get_weather_description(world_data)}```")
-            else:
-                await interaction.followup.send(f"```No world data available.```")
         elif target == "temperature" or target == "temp":
             world_data = self.__player_data_agent.get_world_data('temperature')
             if world_data:
                 await interaction.followup.send(f"```🌡️ - Current Temperature: {round(world_data['base'], 1)}°C```")
+            else:
+                await interaction.followup.send(f"```No world data available.```")
+        elif target == "weather":
+            world_data = self.__player_data_agent.get_world_data('weather')
+            if world_data:
+                await interaction.followup.send(f"```⛅ - Current Weather:\n{self.get_weather_description(world_data)}```")
             else:
                 await interaction.followup.send(f"```No world data available.```")
         elif target == "wind":
@@ -438,29 +491,44 @@ class Project_Zomboid_Commands(commands.Cog):
             matches = difflib.get_close_matches(player, self.__player_data_agent.get_player_data().keys())
             player_data = self.__player_data_agent.get_player_data(matches[0])
             status = "🟢" if matches[0] in [pl for pl in self.__pz_rcon_agent.get_online_players()] else "🔴"
-            await interaction.followup.send(f'```{status} - {player_data['username']}\'s last login: {datetime.fromtimestamp(round(player_data['lastLogin'])).strftime("%B %d, %Y %H:%M:%S")}```')
+            await interaction.followup.send(f'```{status} - {player_data['username']}\'s last login: {datetime.fromtimestamp(round(player_data['lastLogin'])).strftime("%B %d, %Y, %H:%M:%S")}```')
         else:
             await interaction.followup.send(f'```Could not find player named {player}```')
     # end lastlog_slash
 
+    def get_help_description(self) -> str:
+        lines = []
+        lines.append("📜 **Available Commands:**")
+        lines.append("• `/online` — Show currently online players.")
+        lines.append("• `/time` — Show top 10 players by playtime.")
+        lines.append("• `/time [player]` — Show total playtime for a player.")
+        lines.append("• `/survived` — Show top 10 players by survival time.")
+        lines.append("• `/survived [player]` — Show total hours survived for a player.")
+        lines.append("• `/zombies` — Show top 10 players by zombie kills.")
+        lines.append("• `/zombies [player]` — Show total zombie kills for a player.")
+        lines.append("• `/skills` — Show top 10 players by total skill levels.")
+        lines.append("• `/skills [skill]` — Show top 10 players by a skill.")
+        lines.append("• `/skills [player]` — Show a specific players skills.")
+        lines.append("• `/lastlog [player]` — Show a player's last log in time.")
+        lines.append("• `/world` — Show a world report.")
+        lines.append("• `/world [time]` — Show a world report.")
+        lines.append("• `/world [season]` — Show a world report.")
+        lines.append("• `/world [temperature]` — Show a world report.")
+        lines.append("• `/world [weather]` — Show a world report.")
+        lines.append("• `/world [wind]` — Show a world report.")
+        lines.append("• `/commands` — Show this list.")
+        lines.append("• `/help` — Alias for `/commands`")
+        return "\n".join(lines)
+    # end get_help_description
+
     @app_commands.command(name="commands", description="Show all available commands")
     async def commands_slash(self, interaction: discord.Interaction):    
-        await interaction.response.send_message(
-            "📜 **Available Commands:**\n"
-            "• `/online` — Show currently online players.\n"
-            "• `/time [player]` — Show total playtime for a player.\n"
-            "• `/time all` — Show top 10 players by playtime.\n"
-            "• `/survived [player]` — Show total hours survived for a player.\n"
-            "• `/survived all` — Show top 10 players by survival time.\n"
-            "• `/zombies [player]` — Show total zombie kills for a player.\n"
-            "• `/zombies all` — Show top 10 players by zombie kills.\n"
-            "• `/skill [skill]` — Show top 10 players by a skill.\n"
-            "• `/skill [player]` — Show a specific players skills.\n"
-            "• `/skill total` — Show top 10 players by total skill levels.\n"
-            "• `/lastlog player` — Show a player's last log in time.\n"
-            "• `/commands` — Show this list.",
-            ephemeral=True
-        )
+        await interaction.response.send_message(self.get_help_description() , ephemeral=True)
+    # end commands_slash
+
+    @app_commands.command(name="help", description="Show all available commands")
+    async def help_slash(self, interaction: discord.Interaction):    
+        await interaction.response.send_message(self.get_help_description() , ephemeral=True)
     # end commands_slash
 
     # Discord Admin Only Command
@@ -505,7 +573,7 @@ class Project_Zomboid_Commands(commands.Cog):
     def get_weather_description(self, weather_data:dict) -> str:
         if weather_data:
             lines = []
-            lines.append(f"\tClounds: {round(weather_data['cloud_intensity'], 1)}")
+            lines.append(f"\tClouds: {round(weather_data['cloud_intensity'], 1)}")
             lines.append(f"\tHumidity: {round(weather_data['humidity'], 1)}")
             lines.append(f"\tFog Intensity: {round(weather_data['fog_intensity'], 1)}")
             if weather_data['thunderstorm']:
