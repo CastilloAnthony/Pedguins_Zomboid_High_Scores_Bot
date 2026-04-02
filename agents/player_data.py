@@ -164,9 +164,16 @@ class Agent_Player_Data():
                                                 self.__player_data[player_data['username']]['perks'][perk] # Player's previous perk level
                                                 ))
 
+                                if 'deaths' not in player_data:
+                                    if 'deaths' in self.__player_data[player_data['username']]:
+                                        player_data['deaths'] = self.__player_data[player_data['username']]['deaths']
+                                    else:
+                                        player_data['deaths'] = []
+
                                 if player_data['is_alive'] != self.__player_data[player_data['username']]['is_alive'] and player_data['is_alive'] != True: # Check for deaths, Exclue new character
                                     # perks_exclude_fitness_strength = {perk: level for perk, level in player_data['perks'].items() if perk not in ['Fitness', 'Strength']}
                                     self.__deaths.append(copy.deepcopy(player_data))
+                                    player_data['deaths'].append(copy.deepcopy(player_data))
                                     # self.__deaths.append((
                                     #     player_data['username'], 
                                     #     player_data['hours_survived'], 
@@ -226,7 +233,7 @@ class Agent_Player_Data():
             # emoji = skill_emojis.get(max(perks_exclude_fitness_strength,key=perks_exclude_fitness_strength.get), '')
             highest_skill = max(perks_exclude_fitness_strength, key=lambda perk: perks_exclude_fitness_strength[perk])
             emoji = skill_emojis.get(highest_skill, '')
-            url = 'https://b42map.com/?'+str(round(player_data['coord_x']))+'x'+str(round(player_data['coord_y']))
+            url = 'https://b42map.com/?'+str(round(player_data['coords']['x']))+'x'+str(round(player_data['coords']['y']))
             message = [
                 f' {player_data['username']} has died.',
                 f'Survived in-game: {in_game_str}.',

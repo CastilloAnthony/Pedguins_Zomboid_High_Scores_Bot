@@ -185,9 +185,9 @@ class Project_Zomboid_Commands(commands.Cog):
                 if all_player_data[player_data]['access_level'] != "admin": # Exclude admins from total skill leaderboard
                     combined.append((all_player_data[player_data]['username'], sum(all_player_data[player_data]['perks'].values()),))
             top = sorted(combined, key=lambda x: x[1], reverse=True)[:10]
-            for player in top:
-                status = "🟢" if target in [pl for pl in self.__pz_rcon_agent.get_online_players()] else "🔴"
-                lines.append(f'{status} - {player[0]}: {player[1]}')
+            for tuple in top:
+                status = "🟢" if tuple[0] in [pl for pl in self.__pz_rcon_agent.get_online_players()] else "🔴"
+                lines.append(f'{status} - {tuple[0]}: {tuple[1]}')
             await interaction.followup.send(f"```📊 - Top 10 Players by Total Skills:\n" + "\n".join(lines) + "```")
         # elif target_lower in self.__player_data_agent.get_player_data(): # Player specific
         #     player_data = self.__player_data_agent.get_player_data()[target_lower]
@@ -276,7 +276,8 @@ class Project_Zomboid_Commands(commands.Cog):
         elif len(difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())) > 0: # Get closest match of players
             matches = difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())
             player_data = self.__player_data_agent.get_player_data(matches[0])
-            await interaction.followup.send(f"```{player_data['username']}'s Profession: {player_data['profession']}```")
+            status = "🟢" if matches[0] in [pl for pl in self.__pz_rcon_agent.get_online_players()] else "🔴"
+            await interaction.followup.send(f"```{status} - {player_data['username']}'s Profession: {player_data['profession']}```")
         else:
             profession_list = {}
             all_player_data = self.__player_data_agent.get_player_data()
@@ -322,7 +323,8 @@ class Project_Zomboid_Commands(commands.Cog):
             player_data = self.__player_data_agent.get_player_data(matches[0])
             for trait in player_data['traits']:
                 trait_lines.append(f'- {trait}')
-            await interaction.followup.send(f"```{player_data['username']}'s Traits:\n" + "\n".join(trait_lines) + "```")
+            status = "🟢" if matches[0] in [pl for pl in self.__pz_rcon_agent.get_online_players()] else "🔴"
+            await interaction.followup.send(f"```{status} - {player_data['username']}'s Traits:\n" + "\n".join(trait_lines) + "```")
         else:
             trait_list = {}
             all_player_data = self.__player_data_agent.get_player_data()
@@ -365,12 +367,6 @@ class Project_Zomboid_Commands(commands.Cog):
             lines.append(f"Last Login: {datetime.fromtimestamp(round(player_data['lastLogin'])).strftime("%B %d, %Y, %H:%M:%S")}")
             lines.append(f"Character Name: {player_data['character_name']}")
             lines.append(f"Faction: {player_data['faction']}")
-            lines.append(f"Is Alive?: {'Yes' if player_data['is_alive'] else 'No'}")
-            days = int(player_data['time_survived_float']//24)
-            hours = int(player_data['time_survived_float']%24)
-            lines.append(f"Has Survived For: {days} days and {hours} hours in-game.")
-            lines.append(f"Zombie Kills: {player_data['zombie_kills']}")
-            # lines.append(f"Survivor Kills: {player_data['survivor_kills']}") # Ommitted for PvE server
             lines.append(f"Profession: {player_data['profession']}")
             lines.append(f"Traits: {', '.join(player_data['traits'])}")
             skill_emojis = read_json_file('./skill_emojis.json')
@@ -383,6 +379,14 @@ class Project_Zomboid_Commands(commands.Cog):
             for tuple in skills:
                 emoji = skill_emojis.get(tuple[0], '')
                 lines.append(f'\t{emoji} {tuple[0]}: {tuple[1]}')
+            lines.append(f"Deaths: {len(player_data['deaths'])}")
+            if len(player_data['deaths']) > 0:
+                lines.append(f"Last Death: {datetime.fromtimestamp(round(player_data['deaths'][-1]['timestamp'])).strftime("%B %d, %Y, %H:%M:%S")}")
+            days = int(player_data['time_survived_float']//24)
+            hours = int(player_data['time_survived_float']%24)
+            lines.append(f"Has Survived For: {days} days and {hours} hours in-game.")
+            lines.append(f"Zombie Kills: {player_data['zombie_kills']}")
+            # lines.append(f"Survivor Kills: {player_data['survivor_kills']}") # Ommitted for PvE server
             lines.append(f"\nLast Updated: {datetime.fromtimestamp(round(player_data['timestamp'])).strftime("%B %d, %Y, %H:%M:%S")}")
             await interaction.followup.send(f"```{'\n'.join(lines)}```")
         elif target == '':
@@ -390,6 +394,37 @@ class Project_Zomboid_Commands(commands.Cog):
         else:
             await interaction.followup.send(f"```Could not find player a named {target}```")
     # end stats_slash
+
+    @app_commands.command(name="deaths", description="Show all of a ")
+    @app_commands.describe(target="A player's name.")
+    async def deaths_slash(self, interaction: discord.Interaction, target:str): #target2:str=None
+        await interaction.response.defer(thinking=True)
+        if target == "": # Default
+            all_player_data = self.__player_data_agent.get_player_data()
+            combined = []
+            for player in all_player_data:
+                combined.append((player, len(all_player_data[player]['deaths'])))
+            top = sorted(combined, key=lambda x: x[1], reverse=True)[:10]
+            lines = []
+            for tuple in top:
+                status = "🟢" if tuple[0] in [pl for pl in self.__pz_rcon_agent.get_online_players()] else "🔴"
+                lines.append(f'{status} - {tuple[0]}: {tuple[1]}')
+            await interaction.followup.send(f"```📊 - Top 10 Players by Deaths:\n" + "\n".join(lines) + "```")
+        elif len(difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())) > 0:
+            matches = difflib.get_close_matches(target, self.__player_data_agent.get_player_data().keys())
+            player_data = self.__player_data_agent.get_player_data(matches[0])
+            lines = []
+            if len(player_data['deaths']) > 0:
+                for index, death in enumerate(player_data['deaths']):
+                    url = 'https://b42map.com/?'+str(round(death['coords']['x']))+'x'+str(round(death['coords']['y']))
+                    lines.append(f"{index+1} - {datetime.fromtimestamp(round(death['timestamp'])).strftime("%B %d, %Y, %H:%M:%S")} {url}")
+            else:
+                lines.append(f"This player has not had any deaths")
+            status = "🟢" if matches[0] in [pl for pl in self.__pz_rcon_agent.get_online_players()] else "🔴"
+            await interaction.followup.send(f"```{status} - {matches[0]}\'s Deaths:\n```{'\n'.join(lines)}")
+        else:
+            await interaction.followup.send(f"```Could not find player a named {target}```")
+    # end deaths_slash
 
     @app_commands.command(name="time", description="Show world time.")
     async def time_slash(self, interaction: discord.Interaction):
