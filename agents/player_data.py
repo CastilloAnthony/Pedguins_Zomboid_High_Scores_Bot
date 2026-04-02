@@ -190,6 +190,7 @@ class Agent_Player_Data():
                                 player_data['totalPlayTime'] = 0
                                 player_data['lastLogin'] = time.time()
                                 player_data['lastPoll'] = time.time()
+                                player_data['deaths'] = []
                                 self.__player_data[player_data['username']] = player_data
                     else:
                         LOGGER.info(f'Player data json file is empty: {filename}')
