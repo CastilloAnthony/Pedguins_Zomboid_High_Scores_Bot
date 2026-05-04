@@ -1,5 +1,5 @@
-# This file developed by Peter Mann (Pedguin) and includes modifications made by Anthony Castillo (ComradeWolf)
-# Last Update: 2026-24-02
+# Developed by Anthony Castillo (ComradeWolf) for Peter Mann (Pedguin)
+# Last Update: 04/05/2026 (DD/MM/YYYY)
 # Code for sync command retrieved from https://about.abstractumbra.dev/discord.py/2023/01/29/sync-command-example.html
 
 # Native Modules

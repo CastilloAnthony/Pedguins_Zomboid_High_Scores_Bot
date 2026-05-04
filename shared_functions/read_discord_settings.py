@@ -1,4 +1,6 @@
-# This file developed by Anthony Castillo (ComradeWolf)
+# Developed by Anthony Castillo (ComradeWolf) for Peter Mann (Pedguin)
+# Last Update: 04/05/2026 (DD/MM/YYYY)
+
 import json
 from pathlib import Path
 import logging

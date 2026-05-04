@@ -1,3 +1,6 @@
+# Developed by Anthony Castillo (ComradeWolf) for Peter Mann (Pedguin)
+# Last Update: 04/05/2026 (DD/MM/YYYY)
+
 from typing import Literal, Optional
 import discord
 from discord.ext import commands#, tasks

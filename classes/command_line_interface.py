@@ -1,3 +1,7 @@
+# Developed by Anthony Castillo (ComradeWolf) for Peter Mann (Pedguin)
+# Last Update: 04/05/2026 (DD/MM/YYYY)
+# WIP (Currently Unused)
+
 from classes.bot import Discord_Bot
 import asyncio
 from threading import Thread

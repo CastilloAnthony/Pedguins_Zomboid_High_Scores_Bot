@@ -1,3 +1,6 @@
+# Developed by Anthony Castillo (ComradeWolf) for Peter Mann (Pedguin)
+# Last Update: 04/05/2026 (DD/MM/YYYY)
+
 import asyncio
 from classes.bot import Discord_Bot
 # from class_interface import Command_Line_Interface
